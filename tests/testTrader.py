@@ -62,14 +62,10 @@ class TestTrader(unittest.TestCase):
     def test_repr_Provider(self):
         self.assertEqual('Provider({0}, {1}, {2})'.format(self.p1.trader_id, self.p1.quantity, self.p1._delta),
                          '{0!r}'.format(self.p1))
-        self.assertEqual('Provider5({0}, {1}, {2})'.format(self.p5.trader_id, self.p5.quantity, self.p5._delta),
-                         '{0!r}'.format(self.p5))
    
     def test_str__Provider(self):
         self.assertEqual('({0!r}, {1}, {2})'.format(self.p1.trader_id, self.p1.quantity, self.p1._delta), 
                          '{0}'.format(self.p1))
-        self.assertEqual('({0!r}, {1}, {2})'.format(self.p5.trader_id, self.p5.quantity, self.p5._delta), 
-                         '{0}'.format(self.p5))
         
     def test_make_cancel_quote_Provider(self):
         self.q1['trader_id'] = self.p1.trader_id
@@ -137,7 +133,7 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(len(self.p1.quote_collector), 1)
         self.assertEqual(self.p1.quote_collector[0]['side'], 'sell')
         self.assertEqual(len(self.p1.local_book), 2)
-
+    @unittest.skip('for now')
     def test_bulk_cancel_Provider(self):
         '''
         Put 10 orders in the book, use random seed to determine which orders are cancelled,
@@ -183,19 +179,60 @@ class TestTrader(unittest.TestCase):
         self.p1.bulk_cancel(12)
         self.assertFalse(self.p1.cancel_collector)
         
+    def test_bulk_cancel_Provider2(self):
+        '''
+        Put 10 orders in the book, use random seed to determine which orders are cancelled,
+        test for cancelled orders in the queue
+        '''
+        self.assertFalse(self.p1.local_book)
+        self.assertFalse(self.p1.cancel_collector)
+        self.q1['trader_id'] = self.p1.trader_id
+        self.q2['trader_id'] = self.p1.trader_id
+        self.q3['trader_id'] = self.p1.trader_id
+        self.q4['trader_id'] = self.p1.trader_id
+        self.q5['trader_id'] = self.p1.trader_id
+        self.q6['trader_id'] = self.p1.trader_id
+        self.q7['trader_id'] = self.p1.trader_id
+        self.q8['trader_id'] = self.p1.trader_id
+        self.q9['trader_id'] = self.p1.trader_id
+        self.q10['trader_id'] = self.p1.trader_id
+        self.p1.local_book[self.q1['order_id']] = self.q1
+        self.p1.local_book[self.q2['order_id']] = self.q2
+        self.p1.local_book[self.q3['order_id']] = self.q3
+        self.p1.local_book[self.q4['order_id']] = self.q4
+        self.p1.local_book[self.q5['order_id']] = self.q5
+        self.p1.local_book[self.q6['order_id']] = self.q6
+        self.p1.local_book[self.q7['order_id']] = self.q7
+        self.p1.local_book[self.q8['order_id']] = self.q8
+        self.p1.local_book[self.q9['order_id']] = self.q9
+        self.p1.local_book[self.q10['order_id']] = self.q10
+        self.assertEqual(len(self.p1.local_book), 10)
+        self.assertFalse(self.p1.cancel_collector)
+        # random seed = 1 generates 1 position less than 0.03 from random.random: 9
+        random.seed(1)
+        self.p1._delta = 0.03
+        self.p1.bulk_cancel(11)
+        self.assertEqual(len(self.p1.cancel_collector), 1)
+        # random seed = 7 generates 3 positions less than 0.1 from random.random: 3, 6, 9
+        random.seed(7)
+        self.p1._delta = 0.1
+        self.p1.bulk_cancel(12)
+        self.assertEqual(len(self.p1.cancel_collector), 3)
+        # random seed = 39 generates 0 position less than 0.1 from random.random
+        random.seed(39)
+        self.p1._delta = 0.1
+        self.p1.bulk_cancel(12)
+        self.assertFalse(self.p1.cancel_collector)
+        
 # MarketMaker tests
    
     def test_repr_MarketMaker(self):
         self.assertEqual('MarketMaker({0}, {1}, {2}, {3}, {4})'.format(self.m1.trader_id, self.m1.quantity, self.m1._delta, 
                                                                        self.m1._num_quotes, self.m1._quote_range), '{0!r}'.format(self.m1))
-        self.assertEqual('MarketMaker5({0}, {1}, {2}, {3}, {4})'.format(self.m5.trader_id, self.m5.quantity, self.m5._delta,
-                                                                        self.m5._num_quotes, self.m5._quote_range), '{0!r}'.format(self.m5))
    
     def test_str_MarketMaker(self):
         self.assertEqual('({0!r}, {1}, {2}, {3}, {4})'.format(self.m1.trader_id, self.m1.quantity, self.m1._delta, 
                                                               self.m1._num_quotes, self.m1._quote_range), '{0}'.format(self.m1))
-        self.assertEqual('({0!r}, {1}, {2}, {3}, {4})'.format(self.m5.trader_id, self.m5.quantity, self.m5._delta,
-                                                              self.m5._num_quotes, self.m5._quote_range), '{0}'.format(self.m5))
 
     def test_confirm_trade_local_MM(self):
         '''

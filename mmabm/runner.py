@@ -28,7 +28,9 @@ class Runner(object):
             self.t_delta_t, self.taker_array = self.buildTakers(kwargs['numTakers'], kwargs['takerMaxQ'], kwargs['tMu'])
         self.informed = kwargs.pop('InformedTrader')
         if self.informed:
-            informedTrades = np.int(kwargs['iMu']*np.sum(self.run_steps/self.t_delta_t) if self.taker else 1/kwargs['iMu'])
+            if self.taker:
+                takerTradeV = np.array([t.quantity for t in self.taker_array])
+            informedTrades = np.int(kwargs['iMu']*np.sum(takerTradeV*self.run_steps/self.t_delta_t) if self.taker else 1/kwargs['iMu'])
             self.t_delta_i, self.informed_trader = self.buildInformedTrader(kwargs['informedMaxQ'], kwargs['informedRunLength'], informedTrades)
         self.pj = kwargs.pop('PennyJumper')
         if self.pj:
@@ -275,8 +277,8 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_traderid_%d' % j
-        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 2003\\'
+        h5_root = 'python_numpybulk_%d' % j
+        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
