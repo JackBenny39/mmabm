@@ -112,7 +112,7 @@ class Runner(object):
             return qt_take[1], lambda_t
         else:
             qt_take = np.array([0.5]*self.run_steps)
-            lambda_t = -lambda_0
+            lambda_t = np.array([-lambda_0]*self.run_steps)
             return qt_take, lambda_t
         
     def makeLiquidityProviders(self):
