@@ -277,7 +277,7 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_infloop_%d' % j
+        h5_root = 'python_infnparr_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
