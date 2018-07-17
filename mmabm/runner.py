@@ -31,7 +31,7 @@ class Runner(object):
             if self.taker:
                 takerTradeV = np.array([t.quantity for t in self.taker_array])
             informedTrades = np.int(kwargs['iMu']*np.sum(takerTradeV*self.run_steps/self.t_delta_t) if self.taker else 1/kwargs['iMu'])
-            self.t_delta_i, self.informed_trader = self.buildInformedTrader(kwargs['informedMaxQ'], kwargs['informedRunLength'], informedTrades)
+            self.t_delta_i, self.informed_trader = self.buildInformedTrader(kwargs['informedMaxQ'], kwargs['informedRunLength'], informedTrades, prime1)
         self.pj = kwargs.pop('PennyJumper')
         if self.pj:
             self.pennyjumper = self.buildPennyJumper()
@@ -72,23 +72,23 @@ class Runner(object):
         t_delta_t = np.floor(np.random.exponential(1/tMu, numTakers)+1)*taker_size
         return t_delta_t, takers
     
-    def buildInformedTrader(self, informedMaxQ, informedRunLength, informedTrades):
+    def buildInformedTrader(self, informedMaxQ, informedRunLength, informedTrades, prime1):
         ''' Informed trader id starts with 5
         '''
         informed = trader.InformedTrader(5000, informedMaxQ)
-        t_delta_i = np.random.choice(self.run_steps, size=np.int(informedTrades/(informedRunLength*informed.quantity)), replace=False)
-        if informedRunLength > 1:
-            stack1 = t_delta_i
-            s_length = len(t_delta_i)
-            for i in range(1, informedRunLength):
-                temp = t_delta_i+i
-                stack2 = np.unique(np.hstack((stack1, temp)))
-                repeats = (i+1)*s_length - len(set(stack2))
-                new_choice_set = set(range(self.run_steps)) - set(stack2)
-                extras = np.random.choice(list(new_choice_set), size=repeats, replace=False)
-                stack1 = np.hstack((stack2, extras))
-            t_delta_i = stack1
-        return set(t_delta_i), informed
+        numChoices = int(informedTrades/(informedRunLength*informed.quantity)) + 1
+        choiceRange = range(prime1, self.run_steps - informedRunLength + 1)
+        t_delta_i = set()
+        for _ in range(1, numChoices):
+            runL = 0
+            step = random.choice(choiceRange)
+            while runL < informedRunLength:
+                while step in t_delta_i:
+                    step += 1
+                t_delta_i.add(step)
+                step += 1
+                runL += 1
+        return t_delta_i, informed
     
     def buildPennyJumper(self):
         ''' PJ id starts with 4
@@ -266,18 +266,18 @@ if __name__ == '__main__':
     
     settings = {'Provider': True, 'numProviders': 38, 'providerMaxQ': 1, 'pAlpha': 0.0375, 'pDelta': 0.025, 'qProvide': 0.5,
                 'Taker': True, 'numTakers': 50, 'takerMaxQ': 1, 'tMu': 0.001,
-                'InformedTrader': False, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
+                'InformedTrader': True, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
                 'PennyJumper': False, 'AlphaPJ': 0.05,
                 'MarketMaker': True, 'NumMMs': 1, 'MMMaxQ': 1, 'MMQuotes': 12, 'MMQuoteRange': 60, 'MMDelta': 0.025,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
-    for j in range(1, 11):
+    for j in range(1, 6):
         random.seed(j)
         np.random.seed(j)
     
         start = time.time()
         
-        h5_root = 'python_numpybulk_%d' % j
+        h5_root = 'python_infloop_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
