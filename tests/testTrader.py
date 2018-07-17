@@ -133,53 +133,8 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(len(self.p1.quote_collector), 1)
         self.assertEqual(self.p1.quote_collector[0]['side'], 'sell')
         self.assertEqual(len(self.p1.local_book), 2)
-    @unittest.skip('for now')
-    def test_bulk_cancel_Provider(self):
-        '''
-        Put 10 orders in the book, use random seed to determine which orders are cancelled,
-        test for cancelled orders in the queue
-        '''
-        self.assertFalse(self.p1.local_book)
-        self.assertFalse(self.p1.cancel_collector)
-        self.q1['trader_id'] = self.p1.trader_id
-        self.q2['trader_id'] = self.p1.trader_id
-        self.q3['trader_id'] = self.p1.trader_id
-        self.q4['trader_id'] = self.p1.trader_id
-        self.q5['trader_id'] = self.p1.trader_id
-        self.q6['trader_id'] = self.p1.trader_id
-        self.q7['trader_id'] = self.p1.trader_id
-        self.q8['trader_id'] = self.p1.trader_id
-        self.q9['trader_id'] = self.p1.trader_id
-        self.q10['trader_id'] = self.p1.trader_id
-        self.p1.local_book[self.q1['order_id']] = self.q1
-        self.p1.local_book[self.q2['order_id']] = self.q2
-        self.p1.local_book[self.q3['order_id']] = self.q3
-        self.p1.local_book[self.q4['order_id']] = self.q4
-        self.p1.local_book[self.q5['order_id']] = self.q5
-        self.p1.local_book[self.q6['order_id']] = self.q6
-        self.p1.local_book[self.q7['order_id']] = self.q7
-        self.p1.local_book[self.q8['order_id']] = self.q8
-        self.p1.local_book[self.q9['order_id']] = self.q9
-        self.p1.local_book[self.q10['order_id']] = self.q10
-        self.assertEqual(len(self.p1.local_book), 10)
-        self.assertFalse(self.p1.cancel_collector)
-        # np.random seed = 8 generates 1 position less than 0.025 from np.random.ranf: 5
-        np.random.seed(8)
-        self.p1._delta = 0.025
-        self.p1.bulk_cancel(11)
-        self.assertEqual(len(self.p1.cancel_collector), 1)
-        # np.random seed = 7 generates 2 positions less than 0.1 from np.random.ranf: 0, 7
-        np.random.seed(7)
-        self.p1._delta = 0.1
-        self.p1.bulk_cancel(12)
-        self.assertEqual(len(self.p1.cancel_collector), 2)
-        # np.random seed = 6 generates 0 position less than 0.025 from np.random.ranf
-        np.random.seed(6)
-        self.p1._delta = 0.025
-        self.p1.bulk_cancel(12)
-        self.assertFalse(self.p1.cancel_collector)
         
-    def test_bulk_cancel_Provider2(self):
+    def test_bulk_cancel_Provider(self):
         '''
         Put 10 orders in the book, use random seed to determine which orders are cancelled,
         test for cancelled orders in the queue
