@@ -285,4 +285,4 @@ if __name__ == '__main__':
     
         market1 = Runner(h5filename=h5_file, **settings)
 
-        print('Run %d: %.2f minutes' % (j, (time.time() - start)/60))
+        print('Run %d: %.1f seconds' % (j, time.time() - start))
