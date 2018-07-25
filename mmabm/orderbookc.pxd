@@ -5,7 +5,7 @@ cdef class Orderbook:
     cdef unsigned int _order_index, _ex_index
     cdef public bint traded
     
-    cpdef _add_order_to_history(self, dict order)
+    cpdef add_order_to_history(self, dict order)
     cpdef add_order_to_book(self, dict order)
     cdef void _add_order_to_lookup(self, unsigned int trader_id, unsigned int order_id, unsigned int ex_id)
     cdef void _remove_order(self, str order_side, unsigned int order_price, unsigned int ex_id)
