@@ -142,10 +142,10 @@ class Runner(object):
                 'quantity': 1, 'side': 'buy', 'price': bb}
         seed_provider.local_book[1] = qask
         self.exchange.add_order_to_book(qask)
-        self.exchange._add_order_to_history(qask)
+        self.exchange.add_order_to_history(qask)
         seed_provider.local_book[2] = qbid
         self.exchange.add_order_to_book(qbid)
-        self.exchange._add_order_to_history(qbid)
+        self.exchange.add_order_to_history(qbid)
         
     def makeSetup(self, prime1, lambda0):
         top_of_book = self.exchange.report_top_of_book(0)

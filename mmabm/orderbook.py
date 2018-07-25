@@ -45,7 +45,7 @@ class Orderbook(object):
         self._lookup = {}
         self.traded = False
 
-    def _add_order_to_history(self, order):
+    def add_order_to_history(self, order):
         '''Add an order (dict) to order_history'''
         self._order_index += 1
         self.order_history.append({'exid': self._order_index, 'order_id': order['order_id'], 'trader_id': order['trader_id'], 
@@ -133,7 +133,7 @@ class Orderbook(object):
         '''Check for a trade (match); if so call _match_trade, otherwise modify book(s).'''
         self.confirm_modify_collector.clear()
         self.traded = False
-        self._add_order_to_history(order)
+        self.add_order_to_history(order)
         if order['type'] == 'add':
             if order['side'] == 'buy':
                 if order['price'] >= self._ask_book_prices[0]:
