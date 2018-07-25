@@ -2,6 +2,8 @@ import random
 
 import numpy as np
 
+from math import log
+
 
 class ZITrader:
     '''
@@ -106,7 +108,7 @@ class Provider(ZITrader):
     def _choose_price_from_exp(self, side, inside_price, lambda_t):
         '''Prices chosen from an exponential distribution'''
         # make pricing explicit for now. Logic scales for other mpi.
-        plug = int(lambda_t*np.log(np.random.rand()))
+        plug = int(lambda_t*log(random.random()))
         if side == 'bid':
             price = inside_price-1-plug
         else:

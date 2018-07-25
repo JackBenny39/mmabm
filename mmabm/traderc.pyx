@@ -5,6 +5,8 @@ import random
 import numpy as np
 cimport numpy as np
 
+from math import log
+
 cimport cython
 
 
@@ -118,7 +120,7 @@ cdef class Provider(ZITrader):
         
     cdef int _choose_price_from_exp(self, str buysell, int inside_price, double lambda_t):
         '''Prices chosen from an exponential distribution'''
-        cdef int plug = int(lambda_t*np.log(np.random.rand()))
+        cdef int plug = int(lambda_t*log(random.random()))
         if buysell == 'bid':
             return inside_price-1-plug
         else:
