@@ -146,17 +146,13 @@ class Orderbook(object):
                 else:
                     self.add_order_to_book(order)
         else:
-            book_prices = self._bid_book_prices if order['side'] == 'buy' else self._ask_book_prices
-            if order['price'] in book_prices:
-                book = self._bid_book if order['side'] == 'buy' else self._ask_book
-                ex_id = self._lookup[order['trader_id']][order['order_id']]
-                if ex_id in book[order['price']]['orders'].keys():
-                    self._confirm_modify(order['timestamp'], order['side'], order['quantity'],
-                                         order['order_id'], order['trader_id'])
-                    if order['type'] == 'cancel':
-                        self._remove_order(order['side'], order['price'], ex_id)
-                    else: #order['type'] == 'modify'
-                        self._modify_order(order['side'], order['quantity'], ex_id, order['price'])
+            ex_id = self._lookup[order['trader_id']][order['order_id']]
+            self._confirm_modify(order['timestamp'], order['side'], order['quantity'], order['order_id'], 
+                                 order['trader_id'])
+            if order['type'] == 'cancel':
+                self._remove_order(order['side'], order['price'], ex_id)
+            else: #order['type'] == 'modify'
+                self._modify_order(order['side'], order['quantity'], ex_id, order['price'])
     
     def _match_trade(self, order):
         '''Match orders to generate trades, update books.'''
