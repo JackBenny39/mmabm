@@ -4,11 +4,11 @@ import time
 import numpy as np
 import pandas as pd
 
-#import mmabm.trader as trader
-import mmabm.traderc as trader
+import mmabm.trader as trader
+#import mmabm.traderc as trader
 
-#import mmabm.orderbook as orderbook
-import mmabm.orderbookc as orderbook
+import mmabm.orderbook as orderbook
+#import mmabm.orderbookc as orderbook
 
 
 class Runner(object):
@@ -273,13 +273,13 @@ if __name__ == '__main__':
                 'MarketMaker': True, 'NumMMs': 1, 'MMMaxQ': 1, 'MMQuotes': 12, 'MMQuoteRange': 60, 'MMDelta': 0.025,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
-    for j in range(1, 11):
+    for j in range(51, 61):
         random.seed(j)
         np.random.seed(j)
     
         start = time.time()
         
-        h5_root = 'cython_quickprocess_%d' % j
+        h5_root = 'python_jul30_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
