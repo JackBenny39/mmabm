@@ -4,6 +4,8 @@ import time
 import numpy as np
 import pandas as pd
 
+from mmabm.shared import Side, OType
+
 import mmabm.trader as trader
 #import mmabm.traderc as trader
 
@@ -136,10 +138,10 @@ class Runner(object):
         self.liquidity_providers.update({9999: seed_provider})
         ba = random.choice(range(1000005, 1002001, 5))
         bb = random.choice(range(997995, 999996, 5))
-        qask = {'order_id': 1, 'trader_id': 9999, 'timestamp': 0, 'type': 'add', 
-                'quantity': 1, 'side': 'sell', 'price': ba}
-        qbid = {'order_id': 2, 'trader_id': 9999, 'timestamp': 0, 'type': 'add',
-                'quantity': 1, 'side': 'buy', 'price': bb}
+        qask = {'order_id': 1, 'trader_id': 9999, 'timestamp': 0, 'type': OType.ADD, 
+                'quantity': 1, 'side': Side.ASK, 'price': ba}
+        qbid = {'order_id': 2, 'trader_id': 9999, 'timestamp': 0, 'type': OType.ADD,
+                'quantity': 1, 'side': Side.BID, 'price': bb}
         seed_provider.local_book[1] = qask
         self.exchange.add_order_to_book(qask)
         self.exchange.add_order_to_history(qask)
@@ -279,7 +281,7 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_jul30_%d' % j
+        h5_root = 'python_enums_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
