@@ -1,3 +1,6 @@
+from mmabm.sharedc cimport Side
+
+
 cdef class ZITrader:
     cdef public str trader_type
     cdef public int trader_id, quantity
@@ -5,7 +8,7 @@ cdef class ZITrader:
     cdef public list quote_collector
     
     cdef int _make_q(self, int maxq)
-    cdef dict _make_add_quote(self, int time, str side, int price)
+    cdef dict _make_add_quote(self, int time, Side side, int price)
  
     
 cdef class Provider(ZITrader):
@@ -18,7 +21,7 @@ cdef class Provider(ZITrader):
     cpdef confirm_trade_local(self, dict confirm)
     cpdef bulk_cancel(self, int time)
     cpdef process_signal(self, int time, dict qsignal, double q_provider, double lambda_t)
-    cdef int _choose_price_from_exp(self, str buysell, int inside_price, double lambda_t)
+    cdef int _choose_price_from_exp(self, Side side, int inside_price, double lambda_t)
     
     
 cdef class MarketMaker(Provider):
@@ -46,7 +49,7 @@ cdef class Taker(ZITrader):
     
     
 cdef class InformedTrader(ZITrader):
-    cdef str _side
+    cdef Side _side
     cdef int _price
     
     cpdef process_signal(self, int time, double q_taker)
