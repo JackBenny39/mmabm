@@ -65,7 +65,7 @@ cdef class Provider(ZITrader):
         '''Provider has own delta; a local_book to track outstanding orders and a 
         cancel_collector to convey cancel messages to the exchange.
         '''
-        ZITrader.__init__(self, name, maxq)
+        super().__init__(name, maxq)
         self.trader_type = 'Provider'
         self._delta = delta
         self.local_book = {}
@@ -139,7 +139,7 @@ cdef class MarketMaker(Provider):
         '''_num_quotes and _quote_range determine the depth of MM quoting;
         _position and _cashflow are stored MM metrics
         '''
-        Provider.__init__(self, name, maxq, delta)
+        super().__init__(name, maxq, delta)
         self.trader_type = 'MarketMaker'
         self._num_quotes = num_quotes
         self._quote_range = quote_range
@@ -214,7 +214,7 @@ cdef class PennyJumper(ZITrader):
         PennyJumper tracks private _ask_quote and _bid_quote to determine whether it is alone
         at the inside or not.
         '''
-        ZITrader.__init__(self, name, maxq)
+        super().__init__(name, maxq)
         self.trader_type = 'PennyJumper'
         self._mpi = mpi
         self.cancel_collector = []
@@ -292,7 +292,7 @@ cdef class Taker(ZITrader):
     Public methods: process_signal 
     '''
     def __init__(self, int name, int maxq):
-        ZITrader.__init__(self, name, maxq)
+        super().__init__(name, maxq)
         self.trader_type = 'Taker'
         
     cpdef process_signal(self, int time, double q_taker):
@@ -321,7 +321,7 @@ cdef class InformedTrader(ZITrader):
     '''
     
     def __init__(self, int name, int maxq):
-        ZITrader.__init__(self, name, maxq)
+        super().__init__(name, maxq)
         self.trader_type = 'InformedTrader'
         self._side = random.choice([Side.BID, Side.ASK])
         self._price = 0 if self._side == Side.ASK else 2000000
