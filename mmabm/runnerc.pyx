@@ -1,16 +1,12 @@
 import random
-import time
 
 import numpy as np
 import pandas as pd
 
-from mmabm.shared import Side, OType
+from mmabm.sharedc cimport Side, OType
 
-import mmabm.trader as trader
-#import mmabm.traderc as trader
-
-import mmabm.orderbook as orderbook
-#import mmabm.orderbookc as orderbook
+import mmabm.traderc as trader
+import mmabm.orderbookc as orderbook
 
 
 class Runner(object):
@@ -263,28 +259,3 @@ class Runner(object):
             temp_df = pd.DataFrame(m.cash_flow_collector)
             temp_df.to_hdf(self.h5filename, 'mmp', append=True, format='table', complevel=5, complib='blosc')
     
-    
-if __name__ == '__main__':
-    
-    print(time.time())
-    
-    settings = {'Provider': True, 'numProviders': 38, 'providerMaxQ': 1, 'pAlpha': 0.0375, 'pDelta': 0.025, 'qProvide': 0.5,
-                'Taker': True, 'numTakers': 50, 'takerMaxQ': 1, 'tMu': 0.001,
-                'InformedTrader': False, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
-                'PennyJumper': False, 'AlphaPJ': 0.05,
-                'MarketMaker': True, 'NumMMs': 1, 'MMMaxQ': 1, 'MMQuotes': 12, 'MMQuoteRange': 60, 'MMDelta': 0.025,
-                'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
-    
-    for j in range(51, 61):
-        random.seed(j)
-        np.random.seed(j)
-    
-        start = time.time()
-        
-        h5_root = 'python_enums_%d' % j
-        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
-        h5_file = '%s%s.h5' % (h5dir, h5_root)
-    
-        market1 = Runner(h5filename=h5_file, **settings)
-
-        print('Run %d: %.1f seconds' % (j, time.time() - start))

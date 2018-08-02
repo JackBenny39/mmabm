@@ -9,6 +9,8 @@ from math import log
 
 cimport cython
 
+from mmabm.sharedc cimport Side, OType
+
 
 cdef class ZITrader:
     '''
@@ -43,12 +45,11 @@ cdef class ZITrader:
         cdef np.ndarray default_arr = np.array([1, 5, 10, 25, 50], dtype=np.int)
         return random.choice(default_arr[default_arr<=maxq])
     
-    cdef dict _make_add_quote(self, int time, str side, int price):
+    cdef dict _make_add_quote(self, int time, Side side, int price):
         '''Make one add quote (dict)'''
         self._quote_sequence += 1
-        cdef str qtype = 'add'
         return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
-                'type': qtype, 'quantity': self.quantity, 'side': side, 'price': price}
+                'type': OType.ADD, 'quantity': self.quantity, 'side': side, 'price': price}
         
         
 cdef class Provider(ZITrader):
@@ -78,8 +79,7 @@ cdef class Provider(ZITrader):
         return str(tuple([self.trader_id, self.quantity, self._delta]))
     
     cdef dict _make_cancel_quote(self, dict q, int time):
-        cdef str qtype = 'cancel'
-        return {'type': qtype, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
     cpdef confirm_cancel_local(self, dict cancel_dict):
@@ -103,25 +103,23 @@ cdef class Provider(ZITrader):
     cpdef process_signal(self, int time, dict qsignal, double q_provider, double lambda_t):
         '''Provider buys or sells with probability related to q_provide'''
         cdef int price
-        cdef str side, buysell
+        cdef Side side
         cdef dict q
         self.quote_collector.clear()
         if random.random() < q_provider:
-            buysell = 'bid'
-            price = self._choose_price_from_exp(buysell, qsignal['best_ask'], lambda_t)
-            side = 'buy'
+            side = Side.BID
+            price = self._choose_price_from_exp(side, qsignal['best_ask'], lambda_t)  
         else:
-            buysell = 'ask'
-            price = self._choose_price_from_exp(buysell, qsignal['best_bid'], lambda_t)
-            side = 'sell'
+            side = Side.ASK
+            price = self._choose_price_from_exp(side, qsignal['best_bid'], lambda_t)
         q = self._make_add_quote(time, side, price)
         self.local_book[q['order_id']] = q
         self.quote_collector.append(q)
         
-    cdef int _choose_price_from_exp(self, str buysell, int inside_price, double lambda_t):
+    cdef int _choose_price_from_exp(self, Side side, int inside_price, double lambda_t):
         '''Prices chosen from an exponential distribution'''
         cdef int plug = int(lambda_t*log(random.random()))
-        if buysell == 'bid':
+        if side == Side.BID:
             return inside_price-1-plug
         else:
             return inside_price+1+plug
@@ -159,7 +157,7 @@ cdef class MarketMaker(Provider):
     cpdef confirm_trade_local(self, dict confirm):
         '''Modify _cash_flow and _position; update the local_book'''
         cdef dict to_modify
-        if confirm['side'] == 'buy':
+        if confirm['side'] == Side.BID:
             self._cash_flow -= confirm['price']*confirm['quantity']
             self._position += confirm['quantity']
         else:
@@ -183,17 +181,17 @@ cdef class MarketMaker(Provider):
         ''' 
         cdef int max_bid_price, min_ask_price, price
         cdef np.ndarray prices
-        cdef str side
+        cdef Side side
         cdef dict q
         self.quote_collector.clear()
         if random.random() < q_provider:
             max_bid_price = qsignal['best_bid'] if qsignal['bid_size'] > 1 else qsignal['best_bid'] - 1
             prices = np.random.choice(range(max_bid_price-self._quote_range+1, max_bid_price+1), size=self._num_quotes)
-            side = 'buy'
+            side = Side.BID
         else:
             min_ask_price = qsignal['best_ask'] if qsignal['ask_size'] > 1 else qsignal['best_ask'] + 1
             prices = np.random.choice(range(min_ask_price, min_ask_price+self._quote_range), size=self._num_quotes)
-            side = 'sell'
+            side = Side.ASK
         for price in prices:
             q = self._make_add_quote(time, side, price)
             self.local_book[q['order_id']] = q
@@ -231,13 +229,12 @@ cdef class PennyJumper(ZITrader):
         return str(tuple([self.trader_id, self.quantity, self._mpi]))
     
     cdef dict _make_cancel_quote(self, dict q, int time):
-        cdef str qtype = 'cancel'
-        return {'type': qtype, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
 
     cpdef confirm_trade_local(self, dict confirm):
         '''PJ has at most one bid and one ask outstanding - if it executes, set price None'''
-        if confirm['side'] == 'buy':
+        if confirm['side'] == Side.BID:
             self._bid_quote = None
         else:
             self._ask_quote = None
@@ -247,7 +244,7 @@ cdef class PennyJumper(ZITrader):
         point inside the current quotes.
         '''
         cdef int price
-        cdef str side
+        cdef Side side
         cdef dict q
         self.quote_collector.clear()
         self.cancel_collector.clear()
@@ -260,7 +257,7 @@ cdef class PennyJumper(ZITrader):
                         self._bid_quote = None
                 if not self._bid_quote:
                     price = qsignal['best_bid'] + self._mpi
-                    side = 'buy'
+                    side = Side.BID
                     q = self._make_add_quote(time, side, price)
                     self.quote_collector.append(q)
                     self._bid_quote = q
@@ -271,7 +268,7 @@ cdef class PennyJumper(ZITrader):
                         self._ask_quote = None
                 if not self._ask_quote:
                     price = qsignal['best_ask'] - self._mpi
-                    side = 'sell'
+                    side = Side.ASK
                     q = self._make_add_quote(time, side, price)
                     self.quote_collector.append(q)
                     self._ask_quote = q
@@ -301,15 +298,15 @@ cdef class Taker(ZITrader):
     cpdef process_signal(self, int time, double q_taker):
         '''Taker buys or sells with 50% probability.'''
         cdef int price
-        cdef str side
+        cdef Side side
         cdef dict q
         self.quote_collector.clear()
         if random.random() < q_taker: # q_taker > 0.5 implies greater probability of a buy order
             price = 2000000 # agent buys at max price (or better)
-            side = 'buy'
+            side = Side.BID
         else:
             price = 0 # agent sells at min price (or better)
-            side = 'sell'
+            side = Side.ASK
         q = self._make_add_quote(time, side, price)
         self.quote_collector.append(q)
         
@@ -326,8 +323,8 @@ cdef class InformedTrader(ZITrader):
     def __init__(self, int name, int maxq):
         ZITrader.__init__(self, name, maxq)
         self.trader_type = 'InformedTrader'
-        self._side = random.choice(['buy', 'sell'])
-        self._price = 0 if self._side == 'sell' else 2000000
+        self._side = random.choice([Side.BID, Side.ASK])
+        self._price = 0 if self._side == Side.ASK else 2000000
         
     cpdef process_signal(self, int time, double q_taker):
         '''InformedTrader buys or sells pre-specified attribute.'''

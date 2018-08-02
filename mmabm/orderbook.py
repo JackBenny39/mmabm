@@ -1,6 +1,8 @@
 import bisect
 import pandas as pd
 
+from mmabm.shared import Side, OType
+
 class Orderbook(object):
     '''
     Orderbook tracks, processes and matches orders.
@@ -49,8 +51,8 @@ class Orderbook(object):
         '''Add an order (dict) to order_history'''
         self._order_index += 1
         self.order_history.append({'exid': self._order_index, 'order_id': order['order_id'], 'trader_id': order['trader_id'], 
-                                   'timestamp': order['timestamp'], 'type': order['type'], 'quantity': order['quantity'], 
-                                   'side': order['side'], 'price': order['price']})
+                                   'timestamp': order['timestamp'], 'type': order['type'].value, 'quantity': order['quantity'], 
+                                   'side': order['side'].value, 'price': order['price']})
     
     def add_order_to_book(self, order):
         '''
@@ -60,7 +62,7 @@ class Orderbook(object):
         book_order = {'order_id': order['order_id'], 'trader_id': order['trader_id'], 'timestamp': order['timestamp'],
                       'quantity': order['quantity'], 'side': order['side'], 'price': order['price']}
         self._ex_index += 1
-        if order['side'] == 'buy':
+        if order['side'] == Side.BID:
             book_prices = self._bid_book_prices
             book = self._bid_book
         else:
@@ -88,7 +90,7 @@ class Orderbook(object):
           
     def _remove_order(self, order_side, order_price, ex_id):
         '''Pop the order_id; if  order_id exists, updates the book.'''
-        if order_side == 'buy':
+        if order_side == Side.BID:
             book_prices = self._bid_book_prices
             book = self._bid_book
         else:
@@ -105,7 +107,7 @@ class Orderbook(object):
                     
     def _modify_order(self, order_side, order_quantity, ex_id, order_price):
         '''Modify order quantity; if quantity is 0, removes the order.'''
-        book = self._bid_book if order_side == 'buy' else self._ask_book        
+        book = self._bid_book if order_side == Side.BID else self._ask_book        
         if order_quantity < book[order_price]['orders'][ex_id]['quantity']:
             book[order_price]['size'] -= order_quantity
             book[order_price]['orders'][ex_id]['quantity'] -= order_quantity
@@ -117,7 +119,7 @@ class Orderbook(object):
         '''Add trades (dicts) to the trade_book list.'''
         self.trade_book.append({'resting_trader_id': resting_trader_id, 'resting_order_id': resting_order_id, 'resting_timestamp': resting_timestamp, 
                                 'incoming_trader_id': incoming_trader_id, 'incoming_order_id': incoming_order_id, 'timestamp': timestamp, 'price': price,
-                                'quantity': quantity, 'side': side})
+                                'quantity': quantity, 'side': side.value})
 
     def _confirm_trade(self, timestamp, order_side, order_quantity, order_id, order_price, trader_id):
         '''Add trade confirmation to confirm_trade_collector list.'''
@@ -134,8 +136,8 @@ class Orderbook(object):
         self.confirm_modify_collector.clear()
         self.traded = False
         self.add_order_to_history(order)
-        if order['type'] == 'add':
-            if order['side'] == 'buy':
+        if order['type'] == OType.ADD:
+            if order['side'] == Side.BID:
                 if order['price'] >= self._ask_book_prices[0]:
                     self._match_trade(order)
                 else:
@@ -149,7 +151,7 @@ class Orderbook(object):
             ex_id = self._lookup[order['trader_id']][order['order_id']]
             self._confirm_modify(order['timestamp'], order['side'], order['quantity'], order['order_id'], 
                                  order['trader_id'])
-            if order['type'] == 'cancel':
+            if order['type'] == OType.CANCEL:
                 self._remove_order(order['side'], order['price'], ex_id)
             else: #order['type'] == 'modify'
                 self._modify_order(order['side'], order['quantity'], ex_id, order['price'])
@@ -158,7 +160,7 @@ class Orderbook(object):
         '''Match orders to generate trades, update books.'''
         self.traded = True
         self.confirm_trade_collector.clear()
-        if order['side'] == 'buy':
+        if order['side'] == Side.BID:
             book_prices = self._ask_book_prices
             book = self._ask_book
             remainder = order['quantity']
