@@ -94,7 +94,7 @@ cdef class Provider(ZITrader):
           
     cpdef bulk_cancel(self, int time):
         '''bulk_cancel cancels _delta percent of outstanding orders'''
-        cdef unsigned int x
+        cdef int x
         self.cancel_collector.clear()
         for x in self.local_book.keys():
             if random.random() < self._delta:

@@ -1,15 +1,35 @@
+# distutils: language = c++
+
 import random
 
+cimport cython
+
 import numpy as np
+cimport numpy as np
 import pandas as pd
 
 from mmabm.sharedc cimport Side, OType
 
-import mmabm.traderc as trader
-import mmabm.orderbookc as orderbook
+cimport mmabm.traderc as trader
+cimport mmabm.orderbookc as orderbook
 
 
-class Runner(object):
+cdef class Runner(object):
+
+    cdef orderbook.Orderbook exchange
+    
+    cdef trader.InformedTrader informed_trader
+    cdef trader.PennyJumper pennyjumper
+    
+    cdef public str h5filename
+    cdef int mpi, write_interval, informedTrades
+    cdef int prime1, run_steps
+    cdef list providers
+    cdef bint provider, taker, informed, pj, marketmaker
+    cdef np.ndarray t_delta_p, provider_array, t_delta_t, taker_array, t_delta_m, marketmakers, q_take, lambda_t, takerTradeV
+    cdef set t_delta_i
+    cdef double q_provide, alpha_pj
+    cdef dict liquidity_providers
     
     def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
@@ -58,7 +78,7 @@ class Runner(object):
         ''' Providers id starts with 1
         '''
         providers_list = [1000 + i for i in range(numProviders)]
-        providers = np.array([trader.Provider(p, providerMaxQ, pDelta) for p in providers_list])
+        providers = np.array([trader.Provider(p,providerMaxQ,pDelta) for p in providers_list])
         provider_size = np.array([p.quantity for p in providers])
         t_delta_p = np.floor(np.random.exponential(1/pAlpha, numProviders)+1)*provider_size
         return t_delta_p, providers
@@ -144,8 +164,11 @@ class Runner(object):
         seed_provider.local_book[2] = qbid
         self.exchange.add_order_to_book(qbid)
         self.exchange.add_order_to_history(qbid)
-        
-    def makeSetup(self, prime1, lambda0):
+    
+    @cython.boundscheck(False)   
+    cdef void makeSetup(self, int prime1, float lambda0):
+        cdef int current_time
+        cdef trader.Provider p
         top_of_book = self.exchange.report_top_of_book(0)
         for current_time in range(1, prime1):
             for p in self.makeProviders(current_time):
@@ -153,8 +176,8 @@ class Runner(object):
                 self.exchange.process_order(p.quote_collector[-1])
                 top_of_book = self.exchange.report_top_of_book(current_time)
                 
-    def makeProviders(self, step):
-        providers = self.provider_array[np.remainder(step, self.t_delta_p)==0]
+    cdef np.ndarray makeProviders(self, int step):
+        cdef np.ndarray providers = self.provider_array[np.remainder(step, self.t_delta_p)==0]
         np.random.shuffle(providers)
         return providers
     
@@ -182,18 +205,24 @@ class Runner(object):
         np.random.shuffle(all_traders)
         return all_traders
     
-    def doCancels(self, trader):
+    cdef void doCancels(self, trader):
+        cdef dict c
         for c in trader.cancel_collector:
             self.exchange.process_order(c)
             if self.exchange.confirm_modify_collector:
                 trader.confirm_cancel_local(self.exchange.confirm_modify_collector[0])
                     
-    def confirmTrades(self):
+    cdef void confirmTrades(self):
+        cdef dict c
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
-    
-    def runMcs(self, prime1, write_interval):
+            
+    @cython.boundscheck(False)
+    def runMcs(self, int prime1, int write_interval):
+        cdef int current_time
+        cdef np.ndarray row
+        cdef dict q
         top_of_book = self.exchange.report_top_of_book(prime1)
         for current_time in range(prime1, self.run_steps):
             for row in self.makeAll(current_time):
@@ -216,8 +245,12 @@ class Runner(object):
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
-                
-    def runMcsPJ(self, prime1, write_interval):
+    
+    @cython.boundscheck(False)            
+    def runMcsPJ(self, int prime1, int write_interval):
+        cdef int current_time
+        cdef np.ndarray row
+        cdef dict q, c
         top_of_book = self.exchange.report_top_of_book(prime1)
         for current_time in range(prime1, self.run_steps):
             for row in self.makeAll(current_time):
