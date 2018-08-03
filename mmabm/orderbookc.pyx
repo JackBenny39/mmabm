@@ -83,7 +83,7 @@ cdef class Orderbook:
                                     'orders': {self._ex_index: book_order}}
         self._add_order_to_lookup(book_order['trader_id'], book_order['order_id'], self._ex_index)
         
-    cdef void _add_order_to_lookup(self, unsigned int trader_id, unsigned int order_id, unsigned int ex_id):
+    cdef void _add_order_to_lookup(self, int trader_id, int order_id, int ex_id):
         '''
         Add lookup for ex_id
         '''
@@ -92,7 +92,7 @@ cdef class Orderbook:
         else:
             self._lookup[trader_id] = {order_id: ex_id}
             
-    cdef void _remove_order(self, Side order_side, unsigned int order_price, unsigned int ex_id):
+    cdef void _remove_order(self, Side order_side, int order_price, int ex_id):
         '''Pop the order_id; if  order_id exists, updates the book.'''
         cdef dict book, is_order
         cdef list book_prices
@@ -111,7 +111,7 @@ cdef class Orderbook:
                 book_prices.remove(order_price)
             del self._lookup[is_order['trader_id']][is_order['order_id']]
                 
-    cdef void _modify_order(self, Side order_side, unsigned int order_quantity, unsigned int ex_id, unsigned int order_price):
+    cdef void _modify_order(self, Side order_side, int order_quantity, int ex_id, int order_price):
         '''Modify order quantity; if quantity is 0, removes the order.'''
         cdef dict book
         book = self._bid_book if order_side == Side.BID else self._ask_book        
@@ -121,22 +121,22 @@ cdef class Orderbook:
         else:
             self._remove_order(order_side, order_price, ex_id)
             
-    cdef void _add_trade_to_book(self, unsigned int resting_trader_id, unsigned int resting_order_id, unsigned int resting_timestamp,
-                                 unsigned int incoming_trader_id, unsigned int incoming_order_id,
-                                 unsigned int timestamp, unsigned int price, unsigned int quantity, Side side):
+    cdef void _add_trade_to_book(self, int resting_trader_id, int resting_order_id, int resting_timestamp,
+                                 int incoming_trader_id, int incoming_order_id,
+                                 int timestamp, int price, int quantity, Side side):
         '''Add trades (dicts) to the trade_book list.'''
         self.trade_book.append({'resting_trader_id': resting_trader_id, 'resting_order_id': resting_order_id, 'resting_timestamp': resting_timestamp, 
                                 'incoming_trader_id': incoming_trader_id, 'incoming_order_id': incoming_order_id, 'timestamp': timestamp, 'price': price,
                                 'quantity': quantity, 'side': side})
 
-    cdef void _confirm_trade(self, unsigned int timestamp, Side order_side, unsigned int order_quantity, unsigned int order_id,
-                             unsigned int order_price, unsigned int trader_id):
+    cdef void _confirm_trade(self, int timestamp, Side order_side, int order_quantity, int order_id,
+                             int order_price, int trader_id):
         '''Add trade confirmation to confirm_trade_collector list.'''
         self.confirm_trade_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
                                              'quantity': order_quantity, 'side': order_side, 'price': order_price})
     
-    cdef void _confirm_modify(self, unsigned int timestamp, Side order_side, unsigned int order_quantity, unsigned int order_id,
-                              unsigned int trader_id):
+    cdef void _confirm_modify(self, int timestamp, Side order_side, int order_quantity, int order_id,
+                              int trader_id):
         '''Add modify confirmation to confirm_modify_collector list.'''
         self.confirm_modify_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
                                               'quantity': order_quantity, 'side': order_side})
@@ -145,7 +145,7 @@ cdef class Orderbook:
         '''Check for a trade (match); if so call _match_trade, otherwise modify book(s).'''
         cdef list book_prices
         cdef dict book
-        cdef unsigned int ex_id
+        cdef int ex_id
         self.confirm_modify_collector.clear()
         self.traded = False
         self.add_order_to_history(order)
@@ -171,7 +171,7 @@ cdef class Orderbook:
                         
     cdef void _match_trade(self, dict order):
         '''Match orders to generate trades, update books.'''
-        cdef unsigned int remainder, price, ex_id
+        cdef int remainder, price, ex_id
         cdef list book_prices
         cdef dict book, book_order
         self.traded = True
@@ -261,12 +261,12 @@ cdef class Orderbook:
         temp_df.to_hdf(filename, 'tob', append=True, format='table', complevel=5, complib='blosc')
         self._sip_collector.clear()
     
-    cpdef report_top_of_book(self, unsigned int now_time):
+    cpdef dict report_top_of_book(self, int now_time):
         '''Update the top-of-book prices and sizes'''
-        cdef unsigned int best_bid_price = self._bid_book_prices[-1]
-        cdef unsigned int best_bid_size = self._bid_book[best_bid_price]['size']   
-        cdef unsigned int best_ask_price = self._ask_book_prices[0]
-        cdef unsigned int best_ask_size = self._ask_book[best_ask_price]['size']
+        cdef int best_bid_price = self._bid_book_prices[-1]
+        cdef int best_bid_size = self._bid_book[best_bid_price]['size']   
+        cdef int best_ask_price = self._ask_book_prices[0]
+        cdef int best_ask_size = self._ask_book[best_ask_price]['size']
         cdef dict tob = {'timestamp': now_time, 'best_bid': best_bid_price, 'best_ask': best_ask_price, 'bid_size': best_bid_size, 'ask_size': best_ask_size}
         self._sip_collector.append(tob)
         return tob
