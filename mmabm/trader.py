@@ -135,7 +135,7 @@ class MarketMakerL():
     Private methods:
     '''
     
-    def __init__(self, name):
+    def __init__(self, name, geneset):
         self.trader_id = name # trader id
         self.trader_type = 'MarketMaker'
         self._bid_book = {}
@@ -146,13 +146,15 @@ class MarketMakerL():
         self.cancel_collector = []
         self._quote_sequence = 0
         
+        self.geneset = geneset
+        
     def __repr__(self):
         class_name = type(self).__name__
-        return '{0}({1})'.format(class_name, self.trader_id)
+        return '{0}({1}, {2})'.format(class_name, self.trader_id, self.geneset)
     
     def __str__(self):
-        #return str(tuple([self.trader_id]))
-        return str(self.trader_id)
+        return str(tuple([self.trader_id, self.geneset]))
+        #return str(self.trader_id)
     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
@@ -163,6 +165,16 @@ class MarketMakerL():
     def _make_cancel_quote(self, q, time):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
+        
+    def process_signal(self, time, signal):
+        '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
+        self.quote_collector.clear()
+        
+        # (% change in) own midpoint is a fx of signed oi and previous market midpoints
+        old_midpoint = (self._bid_book_prices[-1] + self._ask_book_prices[0])/2
+        new midpoint = round(old_midpoint + self.geneset[0]*signal['signed_oi'] + self.geneset[1]*signal['delta_mid'])
+        # spread is a fx of absolute oi
+        # depth is a fx of absolute oi
         
     
         

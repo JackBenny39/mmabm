@@ -12,7 +12,7 @@ class TestTrader(unittest.TestCase):
     def setUp(self):
         self.z1 = ZITrader(1, 5)
         self.p1 = Provider(1001, 1, 0.025)
-        self.l1 = MarketMakerL(3001)
+        self.l1 = MarketMakerL(3001, tuple([0,0]))
         self.m1 = MarketMaker(3001, 1, 0.05, 12, 60)
         self.j1 = PennyJumper(4001, 1, 5)
         self.t1 = Taker(2001, 1)
@@ -185,10 +185,10 @@ class TestTrader(unittest.TestCase):
 # MarketMakerL tests
 
     def test_repr_MarketMakerL(self):
-        self.assertEqual('MarketMakerL({0})'.format(self.l1.trader_id), '{0!r}'.format(self.l1))
+        self.assertEqual('MarketMakerL({0}, {1})'.format(self.l1.trader_id, self.l1.geneset), '{0!r}'.format(self.l1))
         
     def test_str_MarketMakerL(self):
-        self.assertEqual('{0!r}'.format(self.l1.trader_id), '{0}'.format(self.l1))
+        self.assertEqual('({0!r}, {1})'.format(self.l1.trader_id, self.l1.geneset), '{0}'.format(self.l1))
         
     def test_make_add_quote_MML(self):
         time = 1
