@@ -3,7 +3,8 @@ import unittest
 
 import numpy as np
 
-from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader
+from mmabm.shared import Side, OType
+from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader, MarketMakerL
 
 
 class TestTrader(unittest.TestCase):
@@ -11,30 +12,31 @@ class TestTrader(unittest.TestCase):
     def setUp(self):
         self.z1 = ZITrader(1, 5)
         self.p1 = Provider(1001, 1, 0.025)
+        self.l1 = MarketMakerL(3001)
         self.m1 = MarketMaker(3001, 1, 0.05, 12, 60)
         self.j1 = PennyJumper(4001, 1, 5)
         self.t1 = Taker(2001, 1)
         self.i1 = InformedTrader(5001, 1)
         
-        self.q1 = {'order_id': 1, 'timestamp': 1, 'type': 'add', 'quantity': 1, 'side': 'buy',
+        self.q1 = {'order_id': 1, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 125}
-        self.q2 = {'order_id': 2, 'timestamp': 2, 'type': 'add', 'quantity': 5, 'side': 'buy',
+        self.q2 = {'order_id': 2, 'timestamp': 2, 'type': OType.ADD, 'quantity': 5, 'side': Side.BID,
                    'price': 125}
-        self.q3 = {'order_id': 3, 'timestamp': 3, 'type': 'add', 'quantity': 1, 'side': 'buy',
+        self.q3 = {'order_id': 3, 'timestamp': 3, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 124}
-        self.q4 = {'order_id': 4, 'timestamp': 4, 'type': 'add', 'quantity': 1, 'side': 'buy',
+        self.q4 = {'order_id': 4, 'timestamp': 4, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 123}
-        self.q5 = {'order_id': 5, 'timestamp': 5, 'type': 'add', 'quantity': 1, 'side': 'buy',
+        self.q5 = {'order_id': 5, 'timestamp': 5, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 122}
-        self.q6 = {'order_id': 6, 'timestamp': 6, 'type': 'add', 'quantity': 1, 'side': 'sell',
+        self.q6 = {'order_id': 6, 'timestamp': 6, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 126}
-        self.q7 = {'order_id': 7, 'timestamp': 7, 'type': 'add', 'quantity': 5, 'side': 'sell',
+        self.q7 = {'order_id': 7, 'timestamp': 7, 'type': OType.ADD, 'quantity': 5, 'side': Side.ASK,
                    'price': 127}
-        self.q8 = {'order_id': 8, 'timestamp': 8, 'type': 'add', 'quantity': 1, 'side': 'sell',
+        self.q8 = {'order_id': 8, 'timestamp': 8, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 128}
-        self.q9 = {'order_id': 9, 'timestamp': 9, 'type': 'add', 'quantity': 1, 'side': 'sell',
+        self.q9 = {'order_id': 9, 'timestamp': 9, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 129}
-        self.q10 = {'order_id': 10, 'timestamp': 10, 'type': 'add', 'quantity': 1, 'side': 'sell',
+        self.q10 = {'order_id': 10, 'timestamp': 10, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 130}
         
 # ZITrader tests
@@ -50,11 +52,11 @@ class TestTrader(unittest.TestCase):
 
     def test_make_add_quote(self):
         time = 1
-        side = 'sell'
+        side = Side.ASK
         price = 125
         q = self.z1._make_add_quote(time, side, price)
-        expected = {'order_id': 1, 'trader_id': self.z1.trader_id, 'timestamp': 1, 'type': 'add', 
-                    'quantity': self.z1.quantity, 'side': 'sell', 'price': 125}
+        expected = {'order_id': 1, 'trader_id': self.z1.trader_id, 'timestamp': 1, 'type': OType.ADD, 
+                    'quantity': self.z1.quantity, 'side': Side.ASK, 'price': 125}
         self.assertDictEqual(q, expected)
         
 # Provider tests  
@@ -70,8 +72,8 @@ class TestTrader(unittest.TestCase):
     def test_make_cancel_quote_Provider(self):
         self.q1['trader_id'] = self.p1.trader_id
         q = self.p1._make_cancel_quote(self.q1, 2)
-        expected = {'order_id': 1, 'trader_id': self.p1.trader_id, 'timestamp': 2, 'type': 'cancel', 
-                    'quantity': 1, 'side': 'buy', 'price': 125}
+        expected = {'order_id': 1, 'trader_id': self.p1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
+                    'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
    
     def test_confirm_cancel_local_Provider(self):
@@ -96,24 +98,24 @@ class TestTrader(unittest.TestCase):
         self.p1.local_book[self.q1['order_id']] = self.q1
         self.p1.local_book[self.q2['order_id']] = self.q2
         # trade full quantity of q1
-        trade1 = {'timestamp': 2, 'trader_id': self.p1.trader_id, 'order_id': 1, 'quantity': 1, 'side': 'buy', 'price': 2000000}
+        trade1 = {'timestamp': 2, 'trader_id': self.p1.trader_id, 'order_id': 1, 'quantity': 1, 'side': Side.BID, 'price': 2000000}
         self.assertEqual(len(self.p1.local_book), 2)
         self.p1.confirm_trade_local(trade1)
         self.assertEqual(len(self.p1.local_book), 1)
         expected = {self.q2['order_id']: self.q2}
         self.assertDictEqual(self.p1.local_book, expected)
         # trade partial quantity of q2
-        trade2 = {'timestamp': 3, 'trader_id': self.p1.trader_id, 'order_id': 2, 'quantity': 2, 'side': 'buy', 'price': 2000000}
+        trade2 = {'timestamp': 3, 'trader_id': self.p1.trader_id, 'order_id': 2, 'quantity': 2, 'side': Side.BID, 'price': 2000000}
         self.p1.confirm_trade_local(trade2)
         self.assertEqual(len(self.p1.local_book), 1)
-        expected = {'order_id': 2, 'timestamp': 2, 'trader_id': self.p1.trader_id, 'type': 'add', 'quantity': 3, 
-                    'side': 'buy', 'price': 125}
+        expected = {'order_id': 2, 'timestamp': 2, 'trader_id': self.p1.trader_id, 'type': OType.ADD, 'quantity': 3, 
+                    'side': Side.BID, 'price': 125}
         self.assertDictEqual(self.p1.local_book.get(trade2['order_id']), expected) 
     
     def test_choose_price_from_exp(self):
-        sell_price = self.p1._choose_price_from_exp('bid', 75000, -100)
+        sell_price = self.p1._choose_price_from_exp(Side.BID, 75000, -100)
         self.assertLess(sell_price, 75000)
-        buy_price = self.p1._choose_price_from_exp('ask', 25000, -100)
+        buy_price = self.p1._choose_price_from_exp(Side.ASK, 25000, -100)
         self.assertGreater(buy_price, 25000)
         self.assertEqual(np.remainder(buy_price,1),0)
         self.assertEqual(np.remainder(sell_price,1),0)
@@ -127,11 +129,11 @@ class TestTrader(unittest.TestCase):
         random.seed(1)
         self.p1.process_signal(time, tob_price, q_provider, -100)
         self.assertEqual(len(self.p1.quote_collector), 1)
-        self.assertEqual(self.p1.quote_collector[0]['side'], 'buy')
+        self.assertEqual(self.p1.quote_collector[0]['side'], Side.BID)
         self.assertEqual(len(self.p1.local_book), 1)
         self.p1.process_signal(time, tob_price, q_provider, -100)
         self.assertEqual(len(self.p1.quote_collector), 1)
-        self.assertEqual(self.p1.quote_collector[0]['side'], 'sell')
+        self.assertEqual(self.p1.quote_collector[0]['side'], Side.ASK)
         self.assertEqual(len(self.p1.local_book), 2)
         
     def test_bulk_cancel_Provider(self):
@@ -179,6 +181,34 @@ class TestTrader(unittest.TestCase):
         self.p1.bulk_cancel(12)
         self.assertFalse(self.p1.cancel_collector)
         
+        
+# MarketMakerL tests
+
+    def test_repr_MarketMakerL(self):
+        self.assertEqual('MarketMakerL({0})'.format(self.l1.trader_id), '{0!r}'.format(self.l1))
+        
+    def test_str_MarketMakerL(self):
+        self.assertEqual('{0!r}'.format(self.l1.trader_id), '{0}'.format(self.l1))
+        
+    def test_make_add_quote_MML(self):
+        time = 1
+        side = Side.ASK
+        price = 125
+        quantity = 5
+        q = self.l1._make_add_quote(time, side, price, quantity)
+        expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 1, 'type': OType.ADD, 
+                    'quantity': quantity, 'side': Side.ASK, 'price': 125}
+        self.assertDictEqual(q, expected)
+        
+    def test_make_cancel_quote_MML(self):
+        self.q1['trader_id'] = self.l1.trader_id
+        q = self.l1._make_cancel_quote(self.q1, 2)
+        expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
+                    'quantity': 1, 'side': Side.BID, 'price': 125}
+        self.assertDictEqual(q, expected)
+
+   
+        
 # MarketMaker tests
    
     def test_repr_MarketMaker(self):
@@ -199,7 +229,7 @@ class TestTrader(unittest.TestCase):
         self.m1.local_book[self.q1['order_id']] = self.q1
         self.m1.local_book[self.q2['order_id']] = self.q2
         # trade full quantity of q1
-        trade1 = {'timestamp': 2, 'trader_id': self.p1.trader_id, 'order_id': 1, 'quantity': 1, 'side': 'buy', 'price': 2000000}
+        trade1 = {'timestamp': 2, 'trader_id': self.p1.trader_id, 'order_id': 1, 'quantity': 1, 'side': Side.BID, 'price': 2000000}
         self.assertEqual(len(self.m1.local_book), 2)
         self.m1.confirm_trade_local(trade1)
         self.assertEqual(len(self.m1.local_book), 1)
@@ -207,12 +237,12 @@ class TestTrader(unittest.TestCase):
         expected = {self.q2['order_id']: self.q2}
         self.assertDictEqual(self.m1.local_book, expected)
         # trade partial quantity of q2
-        trade2 = {'timestamp': 3, 'trader_id': self.p1.trader_id, 'order_id': 2, 'quantity': 2, 'side': 'buy', 'price': 2000000}
+        trade2 = {'timestamp': 3, 'trader_id': self.p1.trader_id, 'order_id': 2, 'quantity': 2, 'side': Side.BID, 'price': 2000000}
         self.m1.confirm_trade_local(trade2)
         self.assertEqual(len(self.m1.local_book), 1)
         self.assertEqual(self.m1._position, 3)
-        expected = {'order_id': 2, 'timestamp': 2, 'trader_id': self.m1.trader_id, 'type': 'add', 'quantity': 3, 
-                    'side': 'buy', 'price': 125}
+        expected = {'order_id': 2, 'timestamp': 2, 'trader_id': self.m1.trader_id, 'type': OType.ADD, 'quantity': 3, 
+                    'side': Side.BID, 'price': 125}
         self.assertDictEqual(self.m1.local_book.get(trade2['order_id']), expected) 
         
         # MarketMaker sells
@@ -222,7 +252,7 @@ class TestTrader(unittest.TestCase):
         self.m1.local_book[self.q6['order_id']] = self.q6
         self.m1.local_book[self.q7['order_id']] = self.q7
         # trade full quantity of q6
-        trade1 = {'timestamp': 6, 'trader_id': self.p1.trader_id, 'order_id': 6, 'quantity': 1, 'side': 'sell', 'price': 0}
+        trade1 = {'timestamp': 6, 'trader_id': self.p1.trader_id, 'order_id': 6, 'quantity': 1, 'side': Side.ASK, 'price': 0}
         self.assertEqual(len(self.m1.local_book), 2)
         self.m1.confirm_trade_local(trade1)
         self.assertEqual(len(self.m1.local_book), 1)
@@ -230,12 +260,12 @@ class TestTrader(unittest.TestCase):
         expected = {self.q7['order_id']: self.q7}
         self.assertDictEqual(self.m1.local_book, expected)
         # trade partial quantity of q7
-        trade2 = {'timestamp': 7, 'trader_id': self.p1.trader_id, 'order_id': 7, 'quantity': 2, 'side': 'sell', 'price': 0}
+        trade2 = {'timestamp': 7, 'trader_id': self.p1.trader_id, 'order_id': 7, 'quantity': 2, 'side': Side.ASK, 'price': 0}
         self.m1.confirm_trade_local(trade2)
         self.assertEqual(len(self.m1.local_book), 1)
         self.assertEqual(self.m1._position, -3)
-        expected = {'order_id': 7, 'timestamp': 7, 'trader_id': self.m1.trader_id, 'type': 'add', 'quantity': 3, 
-                    'side': 'sell', 'price': 127}
+        expected = {'order_id': 7, 'timestamp': 7, 'trader_id': self.m1.trader_id, 'type': OType.ADD, 'quantity': 3, 
+                    'side': Side.ASK, 'price': 127}
         self.assertDictEqual(self.m1.local_book.get(trade2['order_id']), expected) 
    
     def test_cumulate_cashflow_MM(self):
@@ -256,7 +286,7 @@ class TestTrader(unittest.TestCase):
         random.seed(low_ru_seed)
         self.m1.process_signal(time, tob1, q_provider)
         self.assertEqual(len(self.m1.quote_collector), 12)
-        self.assertEqual(self.m1.quote_collector[0]['side'], 'buy')
+        self.assertEqual(self.m1.quote_collector[0]['side'], Side.BID)
         for i in range(len(self.m1.quote_collector)):
             with self.subTest(i=i):
                 self.assertLessEqual(self.m1.quote_collector[i]['price'], 25000)
@@ -266,7 +296,7 @@ class TestTrader(unittest.TestCase):
         random.seed(hi_ru_seed)
         self.m1.process_signal(time, tob1, q_provider)
         self.assertEqual(len(self.m1.quote_collector), 12)
-        self.assertEqual(self.m1.quote_collector[0]['side'], 'sell')
+        self.assertEqual(self.m1.quote_collector[0]['side'], Side.ASK)
         for i in range(len(self.m1.quote_collector)):
             with self.subTest(i=i):
                 self.assertLessEqual(self.m1.quote_collector[i]['price'], 75060)
@@ -281,7 +311,7 @@ class TestTrader(unittest.TestCase):
         random.seed(low_ru_seed)
         self.m1.process_signal(time, tob2, q_provider)
         self.assertEqual(len(self.m1.quote_collector), 12)
-        self.assertEqual(self.m1.quote_collector[0]['side'], 'buy')
+        self.assertEqual(self.m1.quote_collector[0]['side'], Side.BID)
         for i in range(len(self.m1.quote_collector)):
             with self.subTest(i=i):
                 self.assertLessEqual(self.m1.quote_collector[i]['price'], 24999)
@@ -291,7 +321,7 @@ class TestTrader(unittest.TestCase):
         random.seed(hi_ru_seed)
         self.m1.process_signal(time, tob2, q_provider)
         self.assertEqual(len(self.m1.quote_collector), 12)
-        self.assertEqual(self.m1.quote_collector[0]['side'], 'sell')
+        self.assertEqual(self.m1.quote_collector[0]['side'], Side.ASK)
         for i in range(len(self.m1.quote_collector)):
             with self.subTest(i=i):
                 self.assertLessEqual(self.m1.quote_collector[i]['price'], 75060)
@@ -309,17 +339,17 @@ class TestTrader(unittest.TestCase):
   
     def test_confirm_trade_local_PJ(self):
         # PennyJumper book
-        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 1, 'type': 'add', 'quantity': 1, 
-                              'side': 'buy', 'price': 125}
-        self.j1._ask_quote = {'order_id': 6, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 'quantity': 1, 
-                              'side': 'sell', 'price': 126}
+        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 
+                              'side': Side.BID, 'price': 125}
+        self.j1._ask_quote = {'order_id': 6, 'trader_id': 4001, 'timestamp': 6, 'type': OType.ADD, 'quantity': 1, 
+                              'side': Side.ASK, 'price': 126}
         # trade at the bid
-        trade1 = {'timestamp': 2, 'trader_id': 4001, 'order_id': 1, 'quantity': 1, 'side': 'buy', 'price': 0}
+        trade1 = {'timestamp': 2, 'trader_id': 4001, 'order_id': 1, 'quantity': 1, 'side': Side.BID, 'price': 0}
         self.assertTrue(self.j1._bid_quote)
         self.j1.confirm_trade_local(trade1)
         self.assertFalse(self.j1._bid_quote)
         # trade at the ask
-        trade2 = {'timestamp': 12, 'trader_id': 4001, 'order_id': 6, 'quantity': 1, 'side': 'sell', 'price': 2000000}
+        trade2 = {'timestamp': 12, 'trader_id': 4001, 'order_id': 6, 'quantity': 1, 'side': Side.ASK, 'price': 2000000}
         self.assertTrue(self.j1._ask_quote)
         self.j1.confirm_trade_local(trade2)
         self.assertFalse(self.j1._ask_quote)
@@ -334,84 +364,84 @@ class TestTrader(unittest.TestCase):
         # jump the bid by 1, then jump the ask by 1
         random.seed(1)
         self.j1.process_signal(5, tob, 0.5)
-        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'buy', 'price': 999995})
+        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': OType.ADD, 
+                                                  'quantity': 1, 'side': Side.BID, 'price': 999995})
         tob = {'bid_size': 1, 'best_bid': 999995, 'best_ask': 1000005, 'ask_size': 5}
         self.j1.process_signal(6, tob, 0.5)
-        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'sell', 'price': 1000000})
+        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.ASK, 'price': 1000000})
         # PJ alone at tob
         tob = {'bid_size': 1, 'best_bid': 999995, 'best_ask': 1000000, 'ask_size': 1}
         # nothing happens
         self.j1.process_signal(7, tob, 0.5)
-        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'buy', 'price': 999995})
-        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'sell', 'price': 1000000})
+        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.BID, 'price': 999995})
+        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.ASK, 'price': 1000000})
         # PJ bid and ask behind the book
         tob = {'bid_size': 1, 'best_bid': 999990, 'best_ask': 1000005, 'ask_size': 1}
-        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 'quantity': 1, 
-                              'side': 'buy', 'price': 999985}
-        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 'quantity': 1, 
-                              'side': 'sell', 'price': 1000010}
+        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.BID, 'price': 999985}
+        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.ASK, 'price': 1000010}
         # random.seed = 1 generates random.uniform(0,1) = 0.13 then .85
         # jump the bid by 1, then jump the ask by 1; cancel old quotes
         random.seed(1)
         self.j1.process_signal(10, tob, 0.5)
-        self.assertDictEqual(self.j1._bid_quote, {'order_id': 3, 'trader_id': 4001, 'timestamp': 10, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'buy', 'price': 999995})
-        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 10, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'buy', 'price': 999985})
+        self.assertDictEqual(self.j1._bid_quote, {'order_id': 3, 'trader_id': 4001, 'timestamp': 10, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.BID, 'price': 999995})
+        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 10, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.BID, 'price': 999985})
         self.assertDictEqual(self.j1.quote_collector[0], self.j1._bid_quote)
         self.j1.process_signal(11, tob, 0.5)
-        self.assertDictEqual(self.j1._ask_quote, {'order_id': 4, 'trader_id': 4001, 'timestamp': 11, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'sell', 'price': 1000000})
-        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 2, 'trader_id': 4001, 'timestamp': 11, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'sell', 'price': 1000010})
+        self.assertDictEqual(self.j1._ask_quote, {'order_id': 4, 'trader_id': 4001, 'timestamp': 11, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.ASK, 'price': 1000000})
+        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 2, 'trader_id': 4001, 'timestamp': 11, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.ASK, 'price': 1000010})
         self.assertDictEqual(self.j1.quote_collector[0],self.j1._ask_quote)
         # PJ not alone at the inside
         tob = {'bid_size': 5, 'best_bid': 999990, 'best_ask': 1000010, 'ask_size': 5}
-        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 'quantity': 1, 
-                              'side': 'buy', 'price': 999990}
-        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 'quantity': 1, 
-                              'side': 'sell', 'price': 1000010}
+        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.BID, 'price': 999990}
+        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.ASK, 'price': 1000010}
         # random.seed = 1 generates random.uniform(0,1) = 0.13 then .85
         # jump the bid by 1, then jump the ask by 1; cancel old quotes
         random.seed(1)
         self.j1.process_signal(12, tob, 0.5)
-        self.assertDictEqual(self.j1._bid_quote, {'order_id': 5, 'trader_id': 4001, 'timestamp': 12, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'buy', 'price': 999995})
-        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 12, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'buy', 'price': 999990})
+        self.assertDictEqual(self.j1._bid_quote, {'order_id': 5, 'trader_id': 4001, 'timestamp': 12, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.BID, 'price': 999995})
+        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 12, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.BID, 'price': 999990})
         self.assertDictEqual(self.j1.quote_collector[0], self.j1._bid_quote)
         self.j1.process_signal(13, tob, 0.5)
-        self.assertDictEqual(self.j1._ask_quote, {'order_id': 6, 'trader_id': 4001, 'timestamp': 13, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'sell', 'price': 1000005})
-        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 2, 'trader_id': 4001, 'timestamp': 13, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'sell', 'price': 1000010})
+        self.assertDictEqual(self.j1._ask_quote, {'order_id': 6, 'trader_id': 4001, 'timestamp': 13, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.ASK, 'price': 1000005})
+        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 2, 'trader_id': 4001, 'timestamp': 13, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.ASK, 'price': 1000010})
         self.assertDictEqual(self.j1.quote_collector[0],self.j1._ask_quote)
         # spread at mpi, PJ alone at nbbo
         tob = {'bid_size': 1, 'best_bid': 999995, 'best_ask': 1000000, 'ask_size': 1}
-        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 'quantity': 1, 
-                              'side': 'buy', 'price': 999995}
-        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 'quantity': 1, 
-                              'side': 'sell', 'price': 1000000}
+        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.BID, 'price': 999995}
+        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.ASK, 'price': 1000000}
         random.seed(1)
         self.j1.process_signal(14, tob, 0.5)
-        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'buy', 'price': 999995})
+        self.assertDictEqual(self.j1._bid_quote, {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.BID, 'price': 999995})
         self.assertFalse(self.j1.cancel_collector)
         self.assertFalse(self.j1.quote_collector)
         self.j1.process_signal(15, tob, 0.5)
-        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 
-                                                  'quantity': 1, 'side': 'sell', 'price': 1000000})
+        self.assertDictEqual(self.j1._ask_quote, {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 
+                                                  'quantity': 1, 'side': Side.ASK, 'price': 1000000})
         self.assertFalse(self.j1.cancel_collector)
         self.assertFalse(self.j1.quote_collector)
         # PJ bid and ask behind the book
-        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type': 'add', 'quantity': 1, 
-                              'side': 'buy', 'price': 999990}
-        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type': 'add', 'quantity': 1, 
-                              'side': 'sell', 'price': 1000010}
+        self.j1._bid_quote = {'order_id': 1, 'trader_id': 4001, 'timestamp': 5, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.BID, 'price': 999990}
+        self.j1._ask_quote = {'order_id': 2, 'trader_id': 4001, 'timestamp': 6, 'type':  OType.ADD, 'quantity': 1, 
+                              'side': Side.ASK, 'price': 1000010}
         # random.seed = 1 generates random.uniform(0,1) = 0.13 then .85
         # cancel bid and ask
         random.seed(1)
@@ -420,10 +450,10 @@ class TestTrader(unittest.TestCase):
         self.j1.process_signal(16, tob, 0.5)
         self.assertFalse(self.j1._bid_quote)
         self.assertFalse(self.j1._ask_quote)
-        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 16, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'buy', 'price': 999990})
-        self.assertDictEqual(self.j1.cancel_collector[1], {'order_id': 2, 'trader_id': 4001, 'timestamp': 16, 'type': 'cancel', 
-                                                           'quantity': 1, 'side': 'sell', 'price': 1000010})
+        self.assertDictEqual(self.j1.cancel_collector[0], {'order_id': 1, 'trader_id': 4001, 'timestamp': 16, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.BID, 'price': 999990})
+        self.assertDictEqual(self.j1.cancel_collector[1], {'order_id': 2, 'trader_id': 4001, 'timestamp': 16, 'type': OType.CANCEL, 
+                                                           'quantity': 1, 'side': Side.ASK, 'price': 1000010})
         self.assertFalse(self.j1.quote_collector)
         
 # Taker tests
@@ -446,12 +476,12 @@ class TestTrader(unittest.TestCase):
         random.seed(low_ru_seed)
         self.t1.process_signal(time, q_taker)
         self.assertEqual(len(self.t1.quote_collector), 1)
-        self.assertEqual(self.t1.quote_collector[0]['side'], 'buy')
+        self.assertEqual(self.t1.quote_collector[0]['side'], Side.BID)
         self.assertEqual(self.t1.quote_collector[0]['price'], 2000000)
         random.seed(hi_ru_seed)
         self.t1.process_signal(time, q_taker)
         self.assertEqual(len(self.t1.quote_collector), 1)
-        self.assertEqual(self.t1.quote_collector[0]['side'], 'sell')
+        self.assertEqual(self.t1.quote_collector[0]['side'], Side.ASK)
         self.assertEqual(self.t1.quote_collector[0]['price'], 0)
         
 # InformedTrader tests

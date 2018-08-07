@@ -115,6 +115,58 @@ class Provider(ZITrader):
         else:
             price = inside_price+1+plug
         return price
+    
+    
+class MarketMakerL():
+    '''
+    MarketMakerL learns from its environment
+    
+    Environment: order flow, absolute order flow (imbalance), current ask, bid and depths
+    What the MML does: prepares ideal order book; compares to actual; add/cancel to make ideal == actual.
+    MML chooses: quote midpoint; spread; price range for bids and asks; depth at those prices.
+    Midpoint: function of signed order imbalance
+    Spread: function of absolute order imbalance
+    Depth: function of absolute order imbalance
+    Price range: emergent outcome
+    
+    Public attributes:
+    Public methods:
+    Private attributes:
+    Private methods:
+    '''
+    
+    def __init__(self, name):
+        self.trader_id = name # trader id
+        self.trader_type = 'MarketMaker'
+        self._bid_book = {}
+        self._bid_book_prices = []
+        self._ask_book = {}
+        self._ask_book_prices = []
+        self.quote_collector = []
+        self.cancel_collector = []
+        self._quote_sequence = 0
+        
+    def __repr__(self):
+        class_name = type(self).__name__
+        return '{0}({1})'.format(class_name, self.trader_id)
+    
+    def __str__(self):
+        #return str(tuple([self.trader_id]))
+        return str(self.trader_id)
+    
+    def _make_add_quote(self, time, side, price, quantity):
+        '''Make one add quote (dict)'''
+        self._quote_sequence += 1
+        return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
+                'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
+        
+    def _make_cancel_quote(self, q, time):
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+                'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
+        
+    
+        
+        
             
 class MarketMaker(Provider):
     '''
@@ -217,7 +269,7 @@ class PennyJumper(ZITrader):
         return str(tuple([self.trader_id, self.quantity, self._mpi]))
     
     def _make_cancel_quote(self, q, time):
-        return {'type': 'cancel', 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
 
     def confirm_trade_local(self, confirm):
