@@ -233,17 +233,6 @@ class TestOrderbook(unittest.TestCase):
         self.ex1._confirm_trade(5, Side.ASK, 1, 1, 50, 1003)
         self.assertTrue(self.ex1.confirm_trade_collector)
         self.assertDictEqual(t2, self.ex1.confirm_trade_collector[0])
-   
-    def test_confirm_modify(self):
-        '''
-        confirm_modify() impacts confirm_modify_collector
-        Check confirm modify collector empty, add a trade, check non-empty, verify dict equality
-        '''      
-        m1 = dict(timestamp=7, trader=1005, order_id=10, quantity=5, side=Side.BID)
-        self.assertFalse(self.ex1.confirm_modify_collector)
-        self.ex1._confirm_modify(7, Side.BID, 5, 10, 1005)
-        self.assertTrue(self.ex1.confirm_modify_collector)
-        self.assertDictEqual(m1, self.ex1.confirm_modify_collector[0])
 
     def test_process_order(self):
         '''
@@ -259,7 +248,6 @@ class TestOrderbook(unittest.TestCase):
         
         self.assertEqual(len(self.ex1._ask_book_prices), 0)
         self.assertEqual(len(self.ex1._bid_book_prices), 0)
-        self.assertFalse(self.ex1.confirm_modify_collector)
         self.assertFalse(self.ex1.order_history)
         self.assertFalse(self.ex1.traded)
         self.assertEqual(len(self.ex1._lookup), 0)
@@ -341,7 +329,6 @@ class TestOrderbook(unittest.TestCase):
         self.assertEqual(len(self.ex1._bid_book_prices), 2)
         self.assertEqual(self.ex1._bid_book[48]['size'], 3)
         self.assertEqual(self.ex1._bid_book[48]['orders'][7]['quantity'], 3)
-        self.assertEqual(len(self.ex1.confirm_modify_collector), 1)
         self.assertFalse(self.ex1.traded)
         self.assertEqual(len(self.ex1._lookup[1005]), 1)
         # add/modify sell order
@@ -360,7 +347,6 @@ class TestOrderbook(unittest.TestCase):
         self.assertEqual(len(self.ex1._ask_book_prices), 2)
         self.assertEqual(self.ex1._ask_book[54]['size'], 3)
         self.assertEqual(self.ex1._ask_book[54]['orders'][8]['quantity'], 3)
-        self.assertEqual(len(self.ex1.confirm_modify_collector), 1)
         self.assertFalse(self.ex1.traded)
         self.assertEqual(len(self.ex1._lookup[1005]), 2)
 

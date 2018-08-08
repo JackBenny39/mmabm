@@ -76,13 +76,13 @@ class Provider(ZITrader):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    def confirm_cancel_local(self, cancel_dict):
-        del self.local_book[cancel_dict['order_id']]
+    def confirm_cancel_local(self, oid):
+        del self.local_book[oid]
 
     def confirm_trade_local(self, confirm):
-        to_modify = self.local_book.get(confirm['order_id'], "WTF???")
+        to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
             
@@ -91,7 +91,9 @@ class Provider(ZITrader):
         self.cancel_collector.clear()
         for x in self.local_book.keys():
             if random.random() < self._delta:
-                self.cancel_collector.append(self._make_cancel_quote(self.local_book.get(x), time))
+                self.cancel_collector.append(self._make_cancel_quote(self.local_book[x], time))
+        for c in self.cancel_collector:        
+            self.confirm_cancel_local(c['order_id'])
 
     def process_signal(self, time, qsignal, q_provider, lambda_t):
         '''Provider buys or sells with probability related to q_provide'''
@@ -171,8 +173,8 @@ class MarketMakerL():
         self.quote_collector.clear()
         
         # (% change in) own midpoint is a fx of signed oi and previous market midpoints
-        old_midpoint = (self._bid_book_prices[-1] + self._ask_book_prices[0])/2
-        new midpoint = round(old_midpoint + self.geneset[0]*signal['signed_oi'] + self.geneset[1]*signal['delta_mid'])
+#        old_midpoint = (self._bid_book_prices[-1] + self._ask_book_prices[0])/2
+#        new midpoint = round(old_midpoint + self.geneset[0]*signal['signed_oi'] + self.geneset[1]*signal['delta_mid'])
         # spread is a fx of absolute oi
         # depth is a fx of absolute oi
         
@@ -217,9 +219,9 @@ class MarketMaker(Provider):
         else:
             self._cash_flow += confirm['price']*confirm['quantity']
             self._position -= confirm['quantity']
-        to_modify = self.local_book.get(confirm['order_id'], "WTF???")
+        to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
         self._cumulate_cashflow(confirm['timestamp'])

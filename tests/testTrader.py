@@ -83,7 +83,7 @@ class TestTrader(unittest.TestCase):
         self.p1.local_book[self.q2['order_id']] = self.q2
         self.assertEqual(len(self.p1.local_book), 2)
         q = self.p1._make_cancel_quote(self.q1, 2)
-        self.p1.confirm_cancel_local(q)
+        self.p1.confirm_cancel_local(q['order_id'])
         self.assertEqual(len(self.p1.local_book), 1)
         expected = {self.q2['order_id']: self.q2}
         self.assertDictEqual(self.p1.local_book, expected)
