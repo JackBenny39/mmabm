@@ -17,7 +17,7 @@ cdef class Provider(ZITrader):
     cdef public dict local_book
     
     cdef dict _make_cancel_quote(self, dict q, int time)
-    cpdef confirm_cancel_local(self, dict cancel_dict)
+    cpdef confirm_cancel_local(self, int oid)
     cpdef confirm_trade_local(self, dict confirm)
     cpdef bulk_cancel(self, int time)
     cpdef process_signal(self, int time, dict qsignal, double q_provider, double lambda_t)
