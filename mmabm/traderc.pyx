@@ -91,12 +91,9 @@ cdef class Provider(ZITrader):
             self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
-     
-    @cython.boundscheck(False)      
+           
     cpdef bulk_cancel(self, int time):
         '''bulk_cancel cancels _delta percent of outstanding orders'''
-        cdef int x
-        cdef dict c
         self.cancel_collector.clear()
         for x in self.local_book.keys():
             if random.random() < self._delta:
