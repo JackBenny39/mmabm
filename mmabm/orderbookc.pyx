@@ -40,7 +40,6 @@ cdef class Orderbook:
         self._bid_book_prices = []
         self._ask_book = {}
         self._ask_book_prices = []
-        self.confirm_modify_collector = []
         self.confirm_trade_collector = []
         self._sip_collector = []
         self.trade_book = []
@@ -134,19 +133,12 @@ cdef class Orderbook:
         '''Add trade confirmation to confirm_trade_collector list.'''
         self.confirm_trade_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
                                              'quantity': order_quantity, 'side': order_side, 'price': order_price})
-    
-    cdef void _confirm_modify(self, int timestamp, Side order_side, int order_quantity, int order_id,
-                              int trader_id):
-        '''Add modify confirmation to confirm_modify_collector list.'''
-        self.confirm_modify_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
-                                              'quantity': order_quantity, 'side': order_side})
         
     cpdef process_order(self, dict order):
         '''Check for a trade (match); if so call _match_trade, otherwise modify book(s).'''
         cdef list book_prices
         cdef dict book
         cdef int ex_id
-        self.confirm_modify_collector.clear()
         self.traded = False
         self.add_order_to_history(order)
         if order['type'] == OType.ADD:
@@ -162,8 +154,6 @@ cdef class Orderbook:
                     self.add_order_to_book(order)
         else:
             ex_id = self._lookup[order['trader_id']][order['order_id']]
-            self._confirm_modify(order['timestamp'], order['side'], order['quantity'], order['order_id'], 
-                                 order['trader_id'])
             if order['type'] == OType.CANCEL:
                 self._remove_order(order['side'], order['price'], ex_id)
             else: #order['type'] == 'modify'

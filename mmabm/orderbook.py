@@ -38,7 +38,6 @@ class Orderbook(object):
         self._bid_book_prices = []
         self._ask_book = {}
         self._ask_book_prices = []
-        self.confirm_modify_collector = []
         self.confirm_trade_collector = []
         self._sip_collector = []
         self.trade_book = []
@@ -125,15 +124,9 @@ class Orderbook(object):
         '''Add trade confirmation to confirm_trade_collector list.'''
         self.confirm_trade_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
                                              'quantity': order_quantity, 'side': order_side, 'price': order_price})
-    
-    def _confirm_modify(self, timestamp, order_side, order_quantity, order_id, trader_id):
-        '''Add modify confirmation to confirm_modify_collector list.'''
-        self.confirm_modify_collector.append({'timestamp': timestamp, 'trader': trader_id, 'order_id': order_id, 
-                                              'quantity': order_quantity, 'side': order_side})
                   
     def process_order(self, order):
         '''Check for a trade (match); if so call _match_trade, otherwise modify book(s).'''
-        self.confirm_modify_collector.clear()
         self.traded = False
         self.add_order_to_history(order)
         if order['type'] == OType.ADD:
@@ -149,8 +142,6 @@ class Orderbook(object):
                     self.add_order_to_book(order)
         else:
             ex_id = self._lookup[order['trader_id']][order['order_id']]
-            self._confirm_modify(order['timestamp'], order['side'], order['quantity'], order['order_id'], 
-                                 order['trader_id'])
             if order['type'] == OType.CANCEL:
                 self._remove_order(order['side'], order['price'], ex_id)
             else: #order['type'] == 'modify'

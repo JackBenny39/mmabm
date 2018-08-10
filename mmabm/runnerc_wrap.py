@@ -25,7 +25,7 @@ if __name__ == '__main__':
     
         start = time.time()
     
-        h5_root = 'cython_cdef_%d' % j
+        h5_root = 'cython_inline3_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
         

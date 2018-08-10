@@ -76,13 +76,13 @@ class Provider(ZITrader):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    def confirm_cancel_local(self, cancel_dict):
-        del self.local_book[cancel_dict['order_id']]
+    def confirm_cancel_local(self, oid):
+        del self.local_book[oid]
 
     def confirm_trade_local(self, confirm):
-        to_modify = self.local_book.get(confirm['order_id'], "WTF???")
+        to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
             
@@ -91,7 +91,9 @@ class Provider(ZITrader):
         self.cancel_collector.clear()
         for x in self.local_book.keys():
             if random.random() < self._delta:
-                self.cancel_collector.append(self._make_cancel_quote(self.local_book.get(x), time))
+                self.cancel_collector.append(self._make_cancel_quote(self.local_book[x], time))
+        for c in self.cancel_collector:        
+            self.confirm_cancel_local(c['order_id'])
 
     def process_signal(self, time, qsignal, q_provider, lambda_t):
         '''Provider buys or sells with probability related to q_provide'''
@@ -115,6 +117,70 @@ class Provider(ZITrader):
         else:
             price = inside_price+1+plug
         return price
+    
+    
+class MarketMakerL():
+    '''
+    MarketMakerL learns from its environment
+    
+    Environment: order flow, absolute order flow (imbalance), current ask, bid and depths
+    What the MML does: prepares ideal order book; compares to actual; add/cancel to make ideal == actual.
+    MML chooses: quote midpoint; spread; price range for bids and asks; depth at those prices.
+    Midpoint: function of signed order imbalance
+    Spread: function of absolute order imbalance
+    Depth: function of absolute order imbalance
+    Price range: emergent outcome
+    
+    Public attributes:
+    Public methods:
+    Private attributes:
+    Private methods:
+    '''
+    
+    def __init__(self, name, geneset):
+        self.trader_id = name # trader id
+        self.trader_type = 'MarketMaker'
+        self._bid_book = {}
+        self._bid_book_prices = []
+        self._ask_book = {}
+        self._ask_book_prices = []
+        self.quote_collector = []
+        self.cancel_collector = []
+        self._quote_sequence = 0
+        
+        self.geneset = geneset
+        
+    def __repr__(self):
+        class_name = type(self).__name__
+        return '{0}({1}, {2})'.format(class_name, self.trader_id, self.geneset)
+    
+    def __str__(self):
+        return str(tuple([self.trader_id, self.geneset]))
+        #return str(self.trader_id)
+    
+    def _make_add_quote(self, time, side, price, quantity):
+        '''Make one add quote (dict)'''
+        self._quote_sequence += 1
+        return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
+                'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
+        
+    def _make_cancel_quote(self, q, time):
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+                'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
+        
+    def process_signal(self, time, signal):
+        '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
+        self.quote_collector.clear()
+        
+        # (% change in) own midpoint is a fx of signed oi and previous market midpoints
+#        old_midpoint = (self._bid_book_prices[-1] + self._ask_book_prices[0])/2
+#        new midpoint = round(old_midpoint + self.geneset[0]*signal['signed_oi'] + self.geneset[1]*signal['delta_mid'])
+        # spread is a fx of absolute oi
+        # depth is a fx of absolute oi
+        
+    
+        
+        
             
 class MarketMaker(Provider):
     '''
@@ -153,9 +219,9 @@ class MarketMaker(Provider):
         else:
             self._cash_flow += confirm['price']*confirm['quantity']
             self._position -= confirm['quantity']
-        to_modify = self.local_book.get(confirm['order_id'], "WTF???")
+        to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
         self._cumulate_cashflow(confirm['timestamp'])
@@ -217,7 +283,7 @@ class PennyJumper(ZITrader):
         return str(tuple([self.trader_id, self.quantity, self._mpi]))
     
     def _make_cancel_quote(self, q, time):
-        return {'type': 'cancel', 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
 
     def confirm_trade_local(self, confirm):

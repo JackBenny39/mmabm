@@ -82,23 +82,24 @@ cdef class Provider(ZITrader):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    cpdef confirm_cancel_local(self, dict cancel_dict):
-        del self.local_book[cancel_dict['order_id']]
+    cpdef confirm_cancel_local(self, int oid):
+        del self.local_book[oid]
         
     cpdef confirm_trade_local(self, dict confirm):
-        cdef dict to_modify = self.local_book.get(confirm['order_id'])
+        cdef dict to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
-          
+           
     cpdef bulk_cancel(self, int time):
         '''bulk_cancel cancels _delta percent of outstanding orders'''
-        cdef int x
         self.cancel_collector.clear()
         for x in self.local_book.keys():
             if random.random() < self._delta:
-                self.cancel_collector.append(self._make_cancel_quote(self.local_book.get(x), time))
+                self.cancel_collector.append(self._make_cancel_quote(self.local_book[x], time))
+        for c in self.cancel_collector:        
+            self.confirm_cancel_local(c['order_id'])
                     
     cpdef process_signal(self, int time, dict qsignal, double q_provider, double lambda_t):
         '''Provider buys or sells with probability related to q_provide'''
@@ -163,9 +164,9 @@ cdef class MarketMaker(Provider):
         else:
             self._cash_flow += confirm['price']*confirm['quantity']
             self._position -= confirm['quantity']
-        to_modify = self.local_book.get(confirm['order_id'])
+        to_modify = self.local_book[confirm['order_id']]
         if confirm['quantity'] == to_modify['quantity']:
-            self.confirm_cancel_local(to_modify)
+            self.confirm_cancel_local(to_modify['order_id'])
         else:
             self.local_book[confirm['order_id']]['quantity'] -= confirm['quantity']
         self._cumulate_cashflow(confirm['timestamp'])

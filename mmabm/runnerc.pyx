@@ -209,8 +209,6 @@ cdef class Runner(object):
         cdef dict c
         for c in trader.cancel_collector:
             self.exchange.process_order(c)
-            if self.exchange.confirm_modify_collector:
-                trader.confirm_cancel_local(self.exchange.confirm_modify_collector[0])
                     
     cdef void confirmTrades(self):
         cdef dict c
