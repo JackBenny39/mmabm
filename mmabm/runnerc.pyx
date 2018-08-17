@@ -162,11 +162,11 @@ cdef class Runner(object):
         seed_provider.local_book[1] = qask
         #self.exchange.add_order_to_book(qask)
         self.exchange.add_order_to_book(9999, 1, 0, 1, Side.ASK, ba)
-        self.exchange.add_order_to_history(qask)
+        #self.exchange.add_order_to_history(qask)
         seed_provider.local_book[2] = qbid
         #self.exchange.add_order_to_book(qbid)
         self.exchange.add_order_to_book(9999, 2, 0, 1, Side.BID, bb)
-        self.exchange.add_order_to_history(qbid)
+        #self.exchange.add_order_to_history(qbid)
     
     @cython.boundscheck(False)   
     cdef void makeSetup(self, int prime1, float lambda0):
@@ -244,7 +244,7 @@ cdef class Runner(object):
                         self.confirmTrades()
                         top_of_book = self.exchange.report_top_of_book(current_time)
             if not current_time % write_interval:
-                self.exchange.order_history_to_h5(self.h5filename)
+                #self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
     
     @cython.boundscheck(False)            
@@ -281,7 +281,7 @@ cdef class Runner(object):
                             self.exchange.process_order(q)
                     top_of_book = self.exchange.report_top_of_book(current_time)
             if not current_time % write_interval:
-                self.exchange.order_history_to_h5(self.h5filename)
+                #self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
                 
     def qTakeToh5(self):

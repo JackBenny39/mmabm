@@ -122,7 +122,7 @@ cdef class Orderbook:
             
     cpdef process_order(self, dict order):
         self.traded = False
-        self.add_order_to_history(order)
+        #self.add_order_to_history(order)
         
         if order['type'] == OType.ADD:
             if order['side'] == Side.BID:
