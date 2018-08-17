@@ -279,8 +279,8 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_fastcancel_%d' % j
-        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1001\\'
+        h5_root = 'python_test_ob_%d' % j
+        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 1002\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
