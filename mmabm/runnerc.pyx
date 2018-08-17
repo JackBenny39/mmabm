@@ -11,7 +11,8 @@ import pandas as pd
 from mmabm.sharedc cimport Side, OType
 
 cimport mmabm.traderc as trader
-cimport mmabm.orderbookc as orderbook
+#cimport mmabm.orderbookc as orderbook
+cimport mmabm.orderbookcpp as orderbook
 
 
 cdef class Runner(object):
@@ -159,10 +160,12 @@ cdef class Runner(object):
         qbid = {'order_id': 2, 'trader_id': 9999, 'timestamp': 0, 'type': OType.ADD,
                 'quantity': 1, 'side': Side.BID, 'price': bb}
         seed_provider.local_book[1] = qask
-        self.exchange.add_order_to_book(qask)
+        #self.exchange.add_order_to_book(qask)
+        self.exchange.add_order_to_book(9999, 1, 0, 1, Side.ASK, ba)
         self.exchange.add_order_to_history(qask)
         seed_provider.local_book[2] = qbid
-        self.exchange.add_order_to_book(qbid)
+        #self.exchange.add_order_to_book(qbid)
+        self.exchange.add_order_to_book(9999, 2, 0, 1, Side.BID, bb)
         self.exchange.add_order_to_history(qbid)
     
     @cython.boundscheck(False)   
