@@ -1,5 +1,3 @@
-# distutils: language = c++
-
 from libcpp.list cimport list as clist
 from libcpp.map cimport map
 from libcpp.pair cimport pair
@@ -13,8 +11,6 @@ ctypedef struct Quote:
     int qty
     Side side
     int price
-    
-ctypedef Quote* q_ptr
     
 ctypedef clist[Quote] Quotes
     

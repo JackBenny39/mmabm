@@ -1,9 +1,5 @@
 # distutils: language = c++
 
-from libcpp.list cimport list as clist
-from libcpp.map cimport map
-from libcpp.pair cimport pair
-
 import pandas as pd
 
 from cython.operator cimport postincrement as inc, postdecrement as dec, dereference as deref
@@ -71,29 +67,23 @@ cdef class Orderbook:
     cdef void _remove_order(self, int trader_id, int order_id, int quantity):
         cdef OrderId oid = OrderId(trader_id, order_id)
         cdef BLQ *blq = &self._lookup[oid]
-        b = blq.bs_ptr
-        l = blq.bs_it
-        q = blq.q_it
-        deref(l).second.qty = deref(l).second.qty - quantity
-        deref(l).second.quotes.erase(q)
-        dec(deref(l).second.cnt)
-        if not deref(l).second.cnt:
-            b.erase(l)
+        deref(blq.bs_it).second.qty = deref(blq.bs_it).second.qty - quantity
+        deref(blq.bs_it).second.quotes.erase(blq.q_it)
+        dec(deref(blq.bs_it).second.cnt)
+        if not deref(blq.bs_it).second.cnt:
+            blq.bs_ptr.erase(blq.bs_it)
         self._lookup.erase(oid)
            
     cdef void _modify_order(self, int trader_id, int order_id, int quantity):
         cdef OrderId oid = OrderId(trader_id, order_id)
         cdef BLQ *blq = &self._lookup[oid]
-        b = blq.bs_ptr
-        l = blq.bs_it
-        q = blq.q_it
-        deref(l).second.qty = deref(l).second.qty - quantity
-        deref(q).qty = deref(q).qty - quantity
-        if not deref(q).qty:
-            deref(l).second.quotes.erase(q)
-            dec(deref(l).second.cnt)
-            if not deref(l).second.cnt:
-                b.erase(l)
+        deref(blq.bs_it).second.qty = deref(blq.bs_it).second.qty - quantity
+        deref(blq.q_it).qty = deref(blq.q_it).qty - quantity
+        if not deref(blq.q_it).qty:
+            deref(blq.bs_it).second.quotes.erase(blq.q_it)
+            dec(deref(blq.bs_it).second.cnt)
+            if not deref(blq.bs_it).second.cnt:
+                blq.bs_ptr.erase(blq.bs_it)
             self._lookup.erase(oid)
             
     cdef void _add_trade_to_book(self, int resting_trader_id, int resting_order_id, int resting_timestamp,
@@ -122,7 +112,7 @@ cdef class Orderbook:
             
     cpdef process_order(self, dict order):
         self.traded = False
-        #self.add_order_to_history(order)
+        self.add_order_to_history(order)
         
         if order['type'] == OType.ADD:
             if order['side'] == Side.BID:

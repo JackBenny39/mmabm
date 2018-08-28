@@ -75,18 +75,6 @@ class TestTrader(unittest.TestCase):
         expected = {'order_id': 1, 'trader_id': self.p1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
                     'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
-   
-    def test_confirm_cancel_local_Provider(self):
-        self.q1['trader_id'] = self.p1.trader_id
-        self.q2['trader_id'] = self.p1.trader_id
-        self.p1.local_book[self.q1['order_id']] = self.q1
-        self.p1.local_book[self.q2['order_id']] = self.q2
-        self.assertEqual(len(self.p1.local_book), 2)
-        q = self.p1._make_cancel_quote(self.q1, 2)
-        self.p1.confirm_cancel_local(q['order_id'])
-        self.assertEqual(len(self.p1.local_book), 1)
-        expected = {self.q2['order_id']: self.q2}
-        self.assertDictEqual(self.p1.local_book, expected)
 
     def test_confirm_trade_local_Provider(self):
         '''
@@ -124,16 +112,13 @@ class TestTrader(unittest.TestCase):
         time = 1
         q_provider = 0.5
         tob_price = {'best_bid': 25000, 'best_ask': 75000}
-        self.assertFalse(self.p1.quote_collector)
         self.assertFalse(self.p1.local_book)
         random.seed(1)
-        self.p1.process_signal(time, tob_price, q_provider, -100)
-        self.assertEqual(len(self.p1.quote_collector), 1)
-        self.assertEqual(self.p1.quote_collector[0]['side'], Side.BID)
+        q1 = self.p1.process_signal(time, tob_price, q_provider, -100)
+        self.assertEqual(q1['side'], Side.BID)
         self.assertEqual(len(self.p1.local_book), 1)
-        self.p1.process_signal(time, tob_price, q_provider, -100)
-        self.assertEqual(len(self.p1.quote_collector), 1)
-        self.assertEqual(self.p1.quote_collector[0]['side'], Side.ASK)
+        q2 = self.p1.process_signal(time, tob_price, q_provider, -100)
+        self.assertEqual(q2['side'], Side.ASK)
         self.assertEqual(len(self.p1.local_book), 2)
         
     def test_bulk_cancel_Provider(self):
@@ -472,17 +457,14 @@ class TestTrader(unittest.TestCase):
         q_taker = 0.5
         low_ru_seed = 1
         hi_ru_seed = 10
-        self.assertFalse(self.t1.quote_collector)
         random.seed(low_ru_seed)
-        self.t1.process_signal(time, q_taker)
-        self.assertEqual(len(self.t1.quote_collector), 1)
-        self.assertEqual(self.t1.quote_collector[0]['side'], Side.BID)
-        self.assertEqual(self.t1.quote_collector[0]['price'], 2000000)
+        q1 = self.t1.process_signal(time, q_taker)
+        self.assertEqual(q1['side'], Side.BID)
+        self.assertEqual(q1['price'], 2000000)
         random.seed(hi_ru_seed)
-        self.t1.process_signal(time, q_taker)
-        self.assertEqual(len(self.t1.quote_collector), 1)
-        self.assertEqual(self.t1.quote_collector[0]['side'], Side.ASK)
-        self.assertEqual(self.t1.quote_collector[0]['price'], 0)
+        q2 = self.t1.process_signal(time, q_taker)
+        self.assertEqual(q2['side'], Side.ASK)
+        self.assertEqual(q2['price'], 0)
         
 # InformedTrader tests
    
@@ -497,9 +479,7 @@ class TestTrader(unittest.TestCase):
         Generates a quote object (dict) and appends to quote_collector
         '''
         time1 = 1
-        self.assertFalse(self.t1.quote_collector)
-        self.i1.process_signal(time1)
-        self.assertEqual(len(self.i1.quote_collector), 1)
-        self.assertEqual(self.i1.quote_collector[0]['side'], self.i1._side)
-        self.assertEqual(self.i1.quote_collector[0]['price'], self.i1._price)
-        self.assertEqual(self.i1.quote_collector[0]['quantity'], 1)
+        q1 = self.i1.process_signal(time1)
+        self.assertEqual(q1['side'], self.i1._side)
+        self.assertEqual(q1['price'], self.i1._price)
+        self.assertEqual(q1['quantity'], 1)
