@@ -27,11 +27,6 @@ cdef class Provider(ZITrader):
     cdef int _choose_price_from_exp(self, Side side, int inside_price, double lambda_t)
     
     
-cdef class Provider5(Provider):
-
-    cdef int _choose_price_from_exp(self, Side side, int inside_price, double lambda_t)
-    
-    
 cdef class MarketMaker(Provider):
     
     cdef int _num_quotes, _quote_range, _position, _cash_flow
@@ -39,13 +34,6 @@ cdef class MarketMaker(Provider):
     
     cpdef confirm_trade_local(self, dict confirm)
     cdef void _cumulate_cashflow(self, int timestamp)
-    cpdef process_signalm(self, int time, dict qsignal, double q_provider)
-    
-    
-cdef class MarketMaker5(MarketMaker):
-    
-    cdef np.ndarray _p5ask, _p5bid
-    
     cpdef process_signalm(self, int time, dict qsignal, double q_provider)
     
     

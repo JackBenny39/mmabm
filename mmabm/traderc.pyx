@@ -5,7 +5,7 @@ import random
 import numpy as np
 cimport numpy as np
 
-from libc.math cimport ceil, floor, log
+from libc.math cimport log
 from mmabm.sharedc cimport Side, OType, TType
 
 
@@ -119,28 +119,6 @@ cdef class Provider(ZITrader):
         else:
             return inside_price+1+plug
     
-    
-cdef class Provider5(Provider):
-    '''
-    Provider5 generates quotes (dicts) based on make probability.
-    
-    Subclass of Provider
-    '''
-
-    def __init__(self, int name, int maxq, double delta):
-        '''Provider has own delta; a local_book to track outstanding orders and a 
-        cancel_collector to convey cancel messages to the exchange.
-        '''
-        super().__init__(name, maxq, delta)
-
-    cdef int _choose_price_from_exp(self, Side side, int inside_price, double lambda_t):
-        '''Prices chosen from an exponential distribution'''
-        cdef int plug = int(lambda_t*log(random.random()))
-        if side == Side.BID:
-            return int(5*floor((inside_price-1-plug)/5))
-        else:
-            return int(5*ceil((inside_price+1+plug)/5))
-    
             
 cdef class MarketMaker(Provider):
     '''
@@ -207,47 +185,6 @@ cdef class MarketMaker(Provider):
         else:
             min_ask_price = qsignal['best_ask'] if qsignal['ask_size'] > 1 else qsignal['best_ask'] + 1
             prices = np.random.choice(range(min_ask_price, min_ask_price+self._quote_range), size=self._num_quotes)
-            side = Side.ASK
-        for price in prices:
-            q = self._make_add_quote(time, side, price)
-            self.local_book[q['order_id']] = q
-            self.quote_collector.append(q)
-            
-            
-cdef class MarketMaker5(MarketMaker):
-    '''
-    MarketMaker5 generates a series of quotes near the inside (dicts) based on make probability.
-    
-    Subclass of MarketMaker
-    Public methods: process_signal 
-    '''
-    
-    def __init__(self, name, maxq, delta, num_quotes, quote_range):
-        '''
-        _num_quotes and _quote_range determine the depth of MM quoting;
-        _position and _cashflow are stored MM metrics
-        '''
-        super().__init__(name, maxq, delta, num_quotes, quote_range)
-        self._p5ask = np.array([1/20, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/30])
-        self._p5bid = np.array([1/30, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/20])
-               
-    cpdef process_signalm(self, int time, dict qsignal, double q_provider):
-        '''
-        MM chooses prices from a grid determined by the best prevailing prices.
-        MM never joins the best price if it has size=1.
-        ''' 
-        cdef int max_bid_price, min_ask_price, price
-        cdef np.ndarray prices
-        cdef Side side
-        cdef dict q
-        self.quote_collector.clear()
-        if random.random() < q_provider:
-            max_bid_price = qsignal['best_bid'] if qsignal['bid_size'] > 1 else qsignal['best_bid'] - 5
-            prices = np.random.choice(range(max_bid_price-self._quote_range, max_bid_price+1, 5), size=self._num_quotes, p=self._p5bid)
-            side = Side.BID
-        else:
-            min_ask_price = qsignal['best_ask'] if qsignal['ask_size'] > 1 else qsignal['best_ask'] + 5
-            prices = np.random.choice(range(min_ask_price, min_ask_price+self._quote_range+1, 5), size=self._num_quotes, p=self._p5ask)
             side = Side.ASK
         for price in prices:
             q = self._make_add_quote(time, side, price)

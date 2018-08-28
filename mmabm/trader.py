@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-from math import ceil, floor, log
+from math import log
 from mmabm.shared import Side, OType, TType
 
 
