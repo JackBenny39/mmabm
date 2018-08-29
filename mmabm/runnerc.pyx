@@ -15,7 +15,7 @@ cimport mmabm.traderc as trader
 from mmabm.sharedc cimport Side, OType, TType
 
 
-cdef class Runner(object):
+cdef class Runner:
     cdef int run_steps, prime1, write_interval, current_time, mpi
     cdef bint provider, taker, informed, pj, marketmaker
     cdef double q_provide, alpha_pj

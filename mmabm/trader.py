@@ -200,10 +200,10 @@ class MarketMakerL():
     Private attributes:
     Private methods:
     '''
+    trader_type = TType.MarketMaker
     
     def __init__(self, name, geneset):
         self.trader_id = name # trader id
-        self.trader_type = 'MarketMaker'
         self._bid_book = {}
         self._bid_book_prices = []
         self._ask_book = {}
@@ -235,6 +235,7 @@ class MarketMakerL():
     def process_signal(self, time, signal):
         '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
         self.quote_collector.clear()
+        self.cancel_collector.clear()
         
         # (% change in) own midpoint is a fx of signed oi and previous market midpoints
         # spread is a fx of absolute oi
