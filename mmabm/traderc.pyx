@@ -248,8 +248,6 @@ cdef class PennyJumper(ZITrader):
                         self.cancel_collector.append(self._make_cancel_quote(self._bid_quote, time))
                         self._bid_quote = None
                 if not self._bid_quote:
-                    #price = qsignal['best_bid'] + self._mpi
-                    #side = Side.BID
                     self._bid_quote = self._make_add_quote(time, Side.BID, qsignal['best_bid'] + self._mpi)
                     self.quote_collector.append(self._bid_quote)
             else:
@@ -258,8 +256,6 @@ cdef class PennyJumper(ZITrader):
                         self.cancel_collector.append(self._make_cancel_quote(self._ask_quote, time))
                         self._ask_quote = None
                 if not self._ask_quote:
-                    #price = qsignal['best_ask'] - self._mpi
-                    #side = Side.ASK
                     self._ask_quote = self._make_add_quote(time, Side.ASK, qsignal['best_ask'] - self._mpi)
                     self.quote_collector.append(self._ask_quote)
         else: # spread = mpi
