@@ -299,9 +299,7 @@ class PennyJumper(ZITrader):
                         self.cancel_collector.append(self._make_cancel_quote(self._bid_quote, time))
                         self._bid_quote = None
                 if not self._bid_quote:
-                    price = qsignal['best_bid'] + self._mpi
-                    side = Side.BID
-                    self._bid_quote = self._make_add_quote(time, side, price)
+                    self._bid_quote = self._make_add_quote(time, Side.BID, qsignal['best_bid'] + self._mpi)
                     self.quote_collector.append(self._bid_quote)
             else:
                 if self._ask_quote: # check if not alone at the ask
@@ -309,9 +307,7 @@ class PennyJumper(ZITrader):
                         self.cancel_collector.append(self._make_cancel_quote(self._ask_quote, time))
                         self._ask_quote = None
                 if not self._ask_quote:
-                    price = qsignal['best_ask'] - self._mpi
-                    side = Side.ASK
-                    self._ask_quote = self._make_add_quote(time, side, price)
+                    self._ask_quote = self._make_add_quote(time, Side.ASK, qsignal['best_ask'] - self._mpi)
                     self.quote_collector.append(self._ask_quote)
         else: # spread = mpi
             if self._bid_quote: # check if not alone at the bid
@@ -339,7 +335,6 @@ class Taker(ZITrader):
         
     def process_signal(self, time, q_taker):
         '''Taker buys or sells with 50% probability.'''
-        self.quote_collector.clear()
         if random.random() < q_taker: # q_taker > 0.5 implies greater probability of a buy order
             return self._make_add_quote(time, Side.BID, 2000000)
         else:
