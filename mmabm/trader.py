@@ -237,8 +237,6 @@ class MarketMakerL():
         self.quote_collector.clear()
         
         # (% change in) own midpoint is a fx of signed oi and previous market midpoints
-#        old_midpoint = (self._bid_book_prices[-1] + self._ask_book_prices[0])/2
-#        new midpoint = round(old_midpoint + self.geneset[0]*signal['signed_oi'] + self.geneset[1]*signal['delta_mid'])
         # spread is a fx of absolute oi
         # depth is a fx of absolute oi
             
