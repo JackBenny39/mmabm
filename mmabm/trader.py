@@ -352,8 +352,8 @@ class InformedTrader(ZITrader):
     
     def __init__(self, name, maxq):
         ZITrader.__init__(self, name, maxq)
-        self._side = random.choice(['buy', 'sell'])
-        self._price = 0 if self._side == 'sell' else 2000000
+        self._side = random.choice([Side.BID, Side.ASK])
+        self._price = 0 if self._side == Side.ASK else 2000000
         
     def process_signal(self, time):
         '''InformedTrader buys or sells pre-specified attribute.'''
