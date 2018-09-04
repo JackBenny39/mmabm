@@ -212,7 +212,7 @@ class MarketMakerL():
         self.cancel_collector = []
         self._quote_sequence = 0
         
-        self.geneset = geneset
+        self._strategy = self._make_strategy(geneset)
         
     def __repr__(self):
         class_name = type(self).__name__
@@ -221,6 +221,15 @@ class MarketMakerL():
     def __str__(self):
         return str(tuple([self.trader_id, self.geneset]))
         #return str(self.trader_id)
+        
+    def _make_strategy(self, genes):
+        strat = {}
+        for j in range(-15, 16):
+            gene = genes[j+15]
+            dirx = 1 if int(gene[0]) else -1
+            resp = int(gene[1:]) * dirx
+            strat.update({j: resp})
+        return strat
     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
@@ -232,7 +241,7 @@ class MarketMakerL():
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    def process_signal(self, time, signal):
+    def process_signal(self, time, tob, signal):
         '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
         self.quote_collector.clear()
         self.cancel_collector.clear()

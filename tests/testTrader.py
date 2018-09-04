@@ -12,7 +12,7 @@ class TestTrader(unittest.TestCase):
     def setUp(self):
         self.z1 = ZITrader(1, 5)
         self.p1 = Provider(1001, 1, 0.025)
-        self.l1 = MarketMakerL(3001, tuple([0,0]))
+        self.l1 = self._makeMML(3001)
         self.m1 = MarketMaker(3001, 1, 0.05, 12, 60)
         self.j1 = PennyJumper(4001, 1, 5)
         self.t1 = Taker(2001, 1)
@@ -38,6 +38,10 @@ class TestTrader(unittest.TestCase):
                    'price': 129}
         self.q10 = {'order_id': 10, 'timestamp': 10, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 130}
+    
+    def _makeMML(self, tid):
+        genes = ['10000', '00000']
+        return MarketMakerL(tid, genes)
         
 # ZITrader tests
 
@@ -175,6 +179,9 @@ class TestTrader(unittest.TestCase):
     def test_str_MarketMakerL(self):
         self.assertEqual('({0!r}, {1})'.format(self.l1.trader_id, self.l1.geneset), '{0}'.format(self.l1))
         
+    def test_make_strategy(self):
+        pass
+        
     def test_make_add_quote_MML(self):
         time = 1
         side = Side.ASK
@@ -191,6 +198,13 @@ class TestTrader(unittest.TestCase):
         expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
                     'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
+        
+    def test_process_signal_MML(self):
+        signal = {'net_of': 1, 'delta_mid': 0}
+        time = 10
+        tob1 = {'best_bid': 25000, 'best_ask': 75000, 'bid_size': 10, 'ask_size': 10}
+        self.l1.process_signal(time, signal, tob1)
+        
 
    
         
