@@ -214,22 +214,12 @@ class MarketMakerL():
         
         self._strategy = self._make_strategy(geneset)
         
-    def __repr__(self):
-        class_name = type(self).__name__
-        return '{0}({1}, {2})'.format(class_name, self.trader_id, self.geneset)
-    
-    def __str__(self):
-        return str(tuple([self.trader_id, self.geneset]))
-        #return str(self.trader_id)
-        
     def _make_strategy(self, genes):
-        strat = {}
-        for j in range(-15, 16):
-            gene = genes[j+15]
-            dirx = 1 if int(gene[0]) else -1
-            resp = int(gene[1:]) * dirx
-            strat.update({j: resp})
-        return strat
+        oi_keys = range(-10, 11)
+        gene_i = [int(x[1:], 2) for x in genes]
+        gene_s = [1 if int(x[0]) else -1 for x in genes]
+        resp = [x * y for x, y in zip(gene_s, gene_i)]
+        return dict(zip(oi_keys, resp))
     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
@@ -246,9 +236,14 @@ class MarketMakerL():
         self.quote_collector.clear()
         self.cancel_collector.clear()
         
+        delta_mid = self._strategy[signal['net_of']]
+        current_mid = (tob['best_bid'] + tob['best_ask'])/2
+        new_mid = current_mid + delta_mid
+        
         # (% change in) own midpoint is a fx of signed oi and previous market midpoints
         # spread is a fx of absolute oi
         # depth is a fx of absolute oi
+        return new_mid
             
 
 class PennyJumper(ZITrader):
