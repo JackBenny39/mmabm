@@ -40,10 +40,12 @@ class TestTrader(unittest.TestCase):
                    'price': 130}
     
     def _makeMML(self, tid):
-        bit_n = 5
-        gene_n = 21
-        genes = tuple([''.join(str(x) for x in [random.randint(0, 1) for _ in range(bit_n)]) for _ in range(gene_n)])
-        return MarketMakerL(tid, genes)
+        bit_n = 7
+        gene_n = 25
+        probs = [0.1, 0.1, 0.8]
+        gene_keys = tuple([''.join(str(x) for x in np.random.choice(np.arange(0, 3), bit_n, p=probs)) for _ in range(gene_n)])
+        gene_vals = [(random.randint(1, 5), random.random()) for _ in range(gene_n)]
+        return MarketMakerL(tid, dict(zip(gene_keys, gene_vals)), bit_n)
         
 # ZITrader tests
 

@@ -202,7 +202,7 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, geneset):
+    def __init__(self, name, geneset, k_len):
         self.trader_id = name # trader id
         self._bid_book = {}
         self._bid_book_prices = []
@@ -212,14 +212,14 @@ class MarketMakerL():
         self.cancel_collector = []
         self._quote_sequence = 0
         
-        self._strategy = self._make_strategy(geneset)
+        self._strategy = geneset
+        self._strat_len = k_len
         
-    def _make_strategy(self, genes):
-        oi_keys = range(-10, 11)
-        gene_i = [int(x[1:], 2) for x in genes]
-        gene_s = [1 if int(x[0]) else -1 for x in genes]
-        resp = [x * y for x, y in zip(gene_s, gene_i)]
-        return dict(zip(oi_keys, resp))
+    def _match_strategies(self, market_state): # convert gene to a list or maybe input as a list
+        for pos, strat in enumerate(self._strategy.keys()):
+            if all([(strat[x] == market_state[x] or strat[x] == '2') for x in range(self._strat_len)]):
+                return pos, sum([strat[x] == market_state[x] for x in range(self._strat_len)])
+                    
     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
