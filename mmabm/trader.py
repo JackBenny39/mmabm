@@ -216,11 +216,19 @@ class MarketMakerL():
         self._strat_len = k_len
         
     def _match_strategies(self, market_state): # convert gene to a list or maybe input as a list
-        for pos, strat in enumerate(self._strategy.keys()):
+        temp_score = {}
+        max_score = 0
+        for strat in self._strategy.keys():
             if all([(strat[x] == market_state[x] or strat[x] == '2') for x in range(self._strat_len)]):
-                return pos, sum([strat[x] == market_state[x] for x in range(self._strat_len)])
+                score = sum([strat[x] == market_state[x] for x in range(self._strat_len)])
+                if score > max_score:
+                    temp_score.clear()
+                    temp_score.update({strat: score})
+                    max_score = score
+                elif score == max_score:
+                    temp_score.update({strat: score})
+        return temp_score
                     
-    
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
         self._quote_sequence += 1

@@ -40,12 +40,17 @@ class TestTrader(unittest.TestCase):
                    'price': 130}
     
     def _makeMML(self, tid):
+        random.seed(39)
+        np.random.seed(39)
         bit_n = 7
         gene_n = 25
         probs = [0.1, 0.1, 0.8]
-        gene_keys = tuple([''.join(str(x) for x in np.random.choice(np.arange(0, 3), bit_n, p=probs)) for _ in range(gene_n)])
-        gene_vals = [(random.randint(1, 5), random.random()) for _ in range(gene_n)]
-        return MarketMakerL(tid, dict(zip(gene_keys, gene_vals)), bit_n)
+        gene_dict = {}
+        while len(gene_dict) < gene_n:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bit_n, p=probs))
+            gv = (random.randint(1, 5), random.random())
+            gene_dict.update({gk: gv})
+        return MarketMakerL(tid, gene_dict, bit_n)
         
 # ZITrader tests
 
@@ -178,10 +183,7 @@ class TestTrader(unittest.TestCase):
 # MarketMakerL tests
         
     def test_make_strategy(self):
-        expected = {-10: -3, -9: -2, -8: 8, -7: -7, -6: 9, -5: 10, -4: -9, -3: -1, -2: -3,
-                    -1: -4, 0: -3, 1: 0, 2: 6, 3: -8, 4: 10, 5: 14, 6: -4, 7: 14, 8: -9,
-                    9: 7, 10: 3}
-        self.assertDictEqual(expected, self.l1._strategy)
+        self.assertEqual(len(self.l1._strategy.keys()), 25)
         
     def test_make_add_quote_MML(self):
         time = 1
@@ -199,15 +201,10 @@ class TestTrader(unittest.TestCase):
         expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
                     'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
-   
-    def test_process_signal_MML(self):
-        signal = {'net_of': 1, 'delta_mid': 0}
-        time = 10
-        tob1 = {'best_bid': 25000, 'best_ask': 75000, 'bid_size': 10, 'ask_size': 10}
-        temp_mid = self.l1.process_signal(time, tob1, signal)
-        delta = self.l1._strategy[signal['net_of']]
-        self.assertEqual(50000 + delta, temp_mid)
-        print(temp_mid)
+
+    def test_match_strategies_MML(self):
+        signal = '0001001'
+        self.assertDictEqual(self.l1._match_strategies(signal), {'2221021': 3})
 
    
         
