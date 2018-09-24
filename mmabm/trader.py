@@ -202,7 +202,7 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, geneset, k_len):
+    def __init__(self, name, geneset):
         self.trader_id = name # trader id
         self._bid_book = {}
         self._bid_book_prices = []
@@ -213,21 +213,21 @@ class MarketMakerL():
         self._quote_sequence = 0
         
         self._strategy = geneset
-        self._strat_len = k_len
+        self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0])
         
-    def _match_strategies(self, market_state): # convert gene to a list or maybe input as a list
-        temp_score = {}
-        max_score = 0
-        for strat in self._strategy.keys():
-            if all([(strat[x] == market_state[x] or strat[x] == '2') for x in range(self._strat_len)]):
-                score = sum([strat[x] == market_state[x] for x in range(self._strat_len)])
-                if score > max_score:
-                    temp_score.clear()
-                    temp_score.update({strat: score})
-                    max_score = score
-                elif score == max_score:
-                    temp_score.update({strat: score})
-        return temp_score
+    def _match_strategy(self, strat_n, market_state): # convert gene to a list or maybe input as a list
+        temp_strength = {}
+        max_strength = 0
+        for cond in self._strategy[strat_n].keys():
+            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._strat_len[strat_n])]):
+                strength = sum([cond[x] == market_state[x] for x in range(self._strat_len[strat_n])])
+                if strength > max_strength:
+                    temp_strength.clear()
+                    temp_strength.update({cond: strength})
+                    max_strength = strength
+                elif strength == max_strength:
+                    temp_strength.update({cond: strength})
+        return temp_strength
                     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''

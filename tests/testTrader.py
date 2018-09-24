@@ -79,12 +79,18 @@ class TestTrader(unittest.TestCase):
         oi_fcst_n = 6
         probs = [0.05, 0.05, 0.9]
         
-        gene_dict = {}
-        while len(gene_dict) < gene_n:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bit_n, p=probs))
-            gv = (random.randint(1, 5), random.random())
-            gene_dict.update({gk: gv})
-        return MarketMakerL(tid, gene_dict, bit_n)
+        arr_genes = {}
+        oi_genes = {}
+        genes = tuple([arr_genes, oi_genes])
+        while len(arr_genes) < gene_n:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
+            arr_genes.update({gk: gv})
+        while len(oi_genes) < gene_n:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
+            oi_genes.update({gk: gv})
+        return MarketMakerL(tid, genes)
         
 # ZITrader tests
 
@@ -217,7 +223,7 @@ class TestTrader(unittest.TestCase):
 # MarketMakerL tests
         
     def test_make_strategy(self):
-        self.assertEqual(len(self.l1._strategy.keys()), 25)
+        print(self.l1._strategy[0], len(self.l1._strategy[0]))
         
     def test_make_add_quote_MML(self):
         time = 1
@@ -236,9 +242,15 @@ class TestTrader(unittest.TestCase):
                     'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
 
-    def test_match_strategies_MML(self):
-        signal = '0001001'
-        self.assertDictEqual(self.l1._match_strategies(signal), {'0222022': 2, '2002222': 2, '0202222': 2, '2201222': 2})
+    def test_match_strategy_MML(self):
+        #arr_state is 16 bits
+        signal0 = '1111100011111100'
+        print(self.l1._match_strategy(0, signal0))
+        
+        #oi_state is 24 bits
+        signal1 = '011111000000011111000000'
+        print(self.l1._match_strategy(1, signal1))
+        #self.assertDictEqual(self.l1._match_strategies(signal), {'0222022': 2, '2002222': 2, '0202222': 2, '2201222': 2})
    
         
 # MarketMaker tests
