@@ -40,11 +40,45 @@ class TestTrader(unittest.TestCase):
                    'price': 130}
     
     def _makeMML(self, tid):
+        '''
+        Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
+        arrival count: 16 bits, 8 for previous period and 8 for the previous 5 periods:
+            previous period -> one bit each for > 0, 1, 2, 3, 4, 6, 8, 12
+            previous 5 periods -> one bit each for >  0, 1, 2, 4, 8, 16, 32, 64
+        order imbalance: 24 bits, 12 for previous period and 12 for previous 5 periods:
+            previous period -> one bit each for < -8, -4, -3, -2, -1, 0 and > 0, 1, 2, 3, 4, 8
+            previous 5 periods -> one bit each for < -16, -8, -6, -4, -2, 0 and > 0, 2, 4, 6, 8, 16
+            
+        The market maker has a set of predictors (condition/forecast rules) where the condition
+        matches the market descriptors (i.e., the market state) and the forecasts are used as inputs
+        to the market maker decision making.
+        Each market condition is a bit string that coincides with market descriptors with the
+        additional possibility of "don't care" (==2). 
+        Each market condition has an associated forecast
+        arrival count: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        order imbalance: 6 bits -> lhs bit is +1/-1 and 2^5 - 1 = 31 for a range of -31 - +31
+        
+        Each market maker receives 25 genes for each of the two sets of market descriptors.
+        Examples:
+        arrival count: 1111100011111100 -> >4 for previous period and >8 for previous 5 periods
+        arrival count gene -> 2222102222221122: 01010 
+            this gene matches on the "do care" (0 or 1) bits and has "don't care" for the remaining
+            bits. It forecasts an arrival count of 10 (0*16 + 1*8 + 0*4 + 1*2 + 0*1).
+        order imbalance: 011111000000011111000000 - < -4 for previous period and < -8 for previous
+        5 periods
+        order imbalance gene: 222221022222222122222012: 010010
+            this gene does not match the market state in position 23 and forecasts an order
+            imbalance of +18 (+1*(1*16 + 0*8 + 0*4 + 1*2 + 0*1))
+        '''
         random.seed(39)
         np.random.seed(39)
-        bit_n = 7
         gene_n = 25
-        probs = [0.1, 0.1, 0.8]
+        arr_cond_n = 16
+        oi_cond_n = 24
+        arr_fcst_n = 5
+        oi_fcst_n = 6
+        probs = [0.05, 0.05, 0.9]
+        
         gene_dict = {}
         while len(gene_dict) < gene_n:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bit_n, p=probs))
@@ -204,8 +238,7 @@ class TestTrader(unittest.TestCase):
 
     def test_match_strategies_MML(self):
         signal = '0001001'
-        self.assertDictEqual(self.l1._match_strategies(signal), {'2221021': 3})
-
+        self.assertDictEqual(self.l1._match_strategies(signal), {'0222022': 2, '2002222': 2, '0202222': 2, '2201222': 2})
    
         
 # MarketMaker tests
