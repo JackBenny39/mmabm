@@ -202,18 +202,22 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, geneset):
+    def __init__(self, name, a, b, c, geneset):
         self.trader_id = name # trader id
+        self._a = a
+        self._b = b
+        self._c = c
         self._bid_book = {}
         self._bid_book_prices = []
         self._ask_book = {}
         self._ask_book_prices = []
+        self._position = []
         self.quote_collector = []
         self.cancel_collector = []
         self._quote_sequence = 0
         
         self._strategy = geneset
-        self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0])
+        self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
         
     def _match_strategy(self, strat_n, market_state): # convert gene to a list or maybe input as a list
         temp_strength = {}
@@ -239,20 +243,57 @@ class MarketMakerL():
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    def process_signal(self, time, tob, signal):
-        '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
+    def _update_midpoint(self, oib_signal):
+        delta_inv = self._position[-1] - self._position[-2]
+        flow = self._match_strategy(1, oib_signal)
+        self._mid += flow + int(self._c * delta_inv)
+        
+    def _make_spread(self, arr_signal, vol_signal):
+        arrivals = self._match_strategy(0, arr_signal)
+        ask_adj = self._match_strategy(3, arrivals)
+        bid_adj = self._match_strategy(2, arrivals)
+        ask = self._mid + min(self._a*vol_signal, self._b) + ask_adj
+        bid = self._mid - min(self._a*vol_signal, self._b) + bid_adj
+        return bid, ask
+        
+        
+    def process_signal(self, step, tob, signal):
+        '''
+        The signal is a dict with features of the market state: 
+            arrival count: 16 bits
+            order imbalance: 24 bits
+            volatility: 10 period standard deviation of midpoint returns
+            
+        The midpoint forecast is a function of forecast order flow and inventory imbalance:
+            mid(t) = mid(t-1) + D + c*I
+            where D is the forecast order imbalance, I is the (change in) inventory imbalance and c is a parameter
+            
+        The market maker forecasts the new midpoint and sets the spread as a function of volatility:
+            ask = mid + min(a*vol,b) +/- k
+            bid = mid - min(a*vol,b) +/- k
+            where a is sensitivity to volatility, b is a minimum and k is an adjustment based on arrival forecast
+        '''
+        # clear the collectors
         self.quote_collector.clear()
         self.cancel_collector.clear()
         
-        delta_mid = self._strategy[signal['net_of']]
-        current_mid = (tob['best_bid'] + tob['best_ask'])/2
-        new_mid = current_mid + delta_mid
+        # compute new midpoint
+        self._update_midpoint(signal['oib'])
         
-        # (% change in) own midpoint is a fx of signed oi and previous market midpoints
-        # spread is a fx of absolute oi
-        # depth is a fx of absolute oi
-        return new_mid
-            
+        # compute new spread
+        bid, ask = self._make_spread(signal['arr'], signal['vol'])
+        
+        # cancel orders if inside new spread
+        
+        
+        # add new orders to make depth and/or establish new inside spread
+        
+        
+        # update scores for predictors
+
+        
+        
+
 
 class PennyJumper(ZITrader):
     '''

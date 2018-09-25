@@ -58,7 +58,8 @@ class TestTrader(unittest.TestCase):
         arrival count: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
         order imbalance: 6 bits -> lhs bit is +1/-1 and 2^5 - 1 = 31 for a range of -31 - +31
         
-        Each market maker receives 25 genes for each of the two sets of market descriptors.
+        Each market maker receives 100 genes for each of the two sets of market descriptors and
+        25 genes for the arrival forecast action rule.
         Examples:
         arrival count: 1111100011111100 -> >4 for previous period and >8 for previous 5 periods
         arrival count gene -> 2222102222221122: 01010 
@@ -69,27 +70,51 @@ class TestTrader(unittest.TestCase):
         order imbalance gene: 222221022222222122222012: 010010
             this gene does not match the market state in position 23 and forecasts an order
             imbalance of +18 (+1*(1*16 + 0*8 + 0*4 + 1*2 + 0*1))
+            
+        The arrival count forecast acts as a condition/action rule where the condition matches the
+        arrival count forecast and the action adjusts the bid and ask prices:
+        arrival count forecast: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        action: 4 bits  -> lhs bit is +1/-1 and 2^3 - 1 = 7 for a range of -7 - +7
+        Example:
+        arrival count forecast -> 01010
+        arrival count gene -> 02210: 0010
+            this gene matches the arrival count forecast and adjusts the bid (or ask) by (+1*(0*4 + 1*2 + 0*1) = +2.
         '''
         random.seed(39)
         np.random.seed(39)
-        gene_n = 25
+        gene_n1 = 100
+        gene_n2 = 25
         arr_cond_n = 16
         oi_cond_n = 24
+        bidp_cond_n = 5
+        askp_cond_n = 5
         arr_fcst_n = 5
         oi_fcst_n = 6
+        bidp_adj_n = 4
+        askp_adj_n = 4
         probs = [0.05, 0.05, 0.9]
         
         arr_genes = {}
         oi_genes = {}
-        genes = tuple([arr_genes, oi_genes])
-        while len(arr_genes) < gene_n:
+        bidp_genes = {}
+        askp_genes = {}
+        genes = tuple([arr_genes, oi_genes, bidp_genes, askp_genes])
+        while len(arr_genes) < gene_n1:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
             arr_genes.update({gk: gv})
-        while len(oi_genes) < gene_n:
+        while len(oi_genes) < gene_n1:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
             oi_genes.update({gk: gv})
+        while len(bidp_genes) < gene_n2:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bidp_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), bidp_adj_n))
+            bidp_genes.update({gk: gv})
+        while len(askp_genes) < gene_n2:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), askp_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), askp_adj_n))
+            askp_genes.update({gk: gv})
         return MarketMakerL(tid, genes)
         
 # ZITrader tests
@@ -223,8 +248,9 @@ class TestTrader(unittest.TestCase):
 # MarketMakerL tests
         
     def test_make_strategy(self):
-        print(self.l1._strategy[0], len(self.l1._strategy[0]))
-        
+        for j in range(4):
+            print(self.l1._strategy[j], len(self.l1._strategy[j]))
+
     def test_make_add_quote_MML(self):
         time = 1
         side = Side.ASK
@@ -246,10 +272,13 @@ class TestTrader(unittest.TestCase):
         #arr_state is 16 bits
         signal0 = '1111100011111100'
         print(self.l1._match_strategy(0, signal0))
-        
         #oi_state is 24 bits
         signal1 = '011111000000011111000000'
         print(self.l1._match_strategy(1, signal1))
+        signal2 = '01010'
+        print(self.l1._match_strategy(2, signal2))
+        signal3 = '00010'
+        print(self.l1._match_strategy(3, signal3))
         #self.assertDictEqual(self.l1._match_strategies(signal), {'0222022': 2, '2002222': 2, '0202222': 2, '2201222': 2})
    
         
