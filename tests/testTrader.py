@@ -98,7 +98,7 @@ class TestTrader(unittest.TestCase):
         oi_genes = {}
         bidp_genes = {}
         askp_genes = {}
-        genes = tuple([oi_genes, arr_genes, bidp_genes, askp_genes])
+        genes = tuple([oi_genes, arr_genes, askp_genes, bidp_genes])
         while len(arr_genes) < gene_n1:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
@@ -246,27 +246,54 @@ class TestTrader(unittest.TestCase):
         
         
 # MarketMakerL tests
+    def test_make_oi_strat2(self):
+        print(self.l1._oi_strat)
+    @unittest.skip('Takes too long to run every time')
     def test_make_oi_strat(self):
         self.assertEqual(len(self.l1._oi_strat['chromosomes']), 100)
         self.assertEqual(len(self.l1._oi_strat['strategy']), 100)
         self.assertEqual(len(self.l1._oi_strat['accuracy']), 100)
-        self.assertEqual(len(list(self.l1._oi_strat['chromosomes'].keys())[0]), 24)
+        self.assertEqual(self.l1._oi_strat['gene_count'], 24)
         for i in self.l1._oi_strat['strategy'].keys():
             with self.subTest(i=i):
                 self.assertEqual(int(self.l1._oi_strat['chromosomes'][i][1:], 2), abs(self.l1._oi_strat['strategy'][i]))
                 if self.l1._oi_strat['strategy'][i] != 0:
                     self.assertEqual(int(self.l1._oi_strat['chromosomes'][i][0]), self.l1._oi_strat['strategy'][i]>0)
                 self.assertEqual(self.l1._oi_strat['accuracy'][i], 0)
-                
+    @unittest.skip('Takes too long to run every time')            
     def test_make_arr_strat(self):
         self.assertEqual(len(self.l1._arr_strat['chromosomes']), 100)
         self.assertEqual(len(self.l1._arr_strat['strategy']), 100)
         self.assertEqual(len(self.l1._arr_strat['accuracy']), 100)
-        self.assertEqual(len(list(self.l1._arr_strat['chromosomes'].keys())[0]), 16)
+        self.assertEqual(self.l1._arr_strat['gene_count'], 16)
         for i in self.l1._arr_strat['strategy'].keys():
             with self.subTest(i=i):
                 self.assertEqual(int(self.l1._arr_strat['chromosomes'][i], 2), self.l1._arr_strat['strategy'][i])
                 self.assertEqual(self.l1._arr_strat['accuracy'][i], 0)
+    @unittest.skip('Takes too long to run every time')            
+    def test_make_bidask_strat(self):
+        #ask strategy
+        self.assertEqual(len(self.l1._askadj_strat['chromosomes']), 25)
+        self.assertEqual(len(self.l1._askadj_strat['strategy']), 25)
+        self.assertEqual(len(self.l1._askadj_strat['profitability']), 25)
+        self.assertEqual(self.l1._askadj_strat['gene_count'], 5)
+        for i in self.l1._askadj_strat['strategy'].keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._askadj_strat['chromosomes'][i][1:], 2), abs(self.l1._askadj_strat['strategy'][i]))
+                if self.l1._askadj_strat['strategy'][i] != 0:
+                    self.assertEqual(int(self.l1._askadj_strat['chromosomes'][i][0]), self.l1._askadj_strat['strategy'][i]>0)
+                self.assertEqual(self.l1._askadj_strat['profitability'][i], 0)
+        #bid strategy        
+        self.assertEqual(len(self.l1._bidadj_strat['chromosomes']), 25)
+        self.assertEqual(len(self.l1._bidadj_strat['strategy']), 25)
+        self.assertEqual(len(self.l1._bidadj_strat['profitability']), 25)
+        self.assertEqual(self.l1._bidadj_strat['gene_count'], 5)
+        for i in self.l1._bidadj_strat['strategy'].keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._bidadj_strat['chromosomes'][i][1:], 2), abs(self.l1._bidadj_strat['strategy'][i]))
+                if self.l1._bidadj_strat['strategy'][i] != 0:
+                    self.assertEqual(int(self.l1._bidadj_strat['chromosomes'][i][0]), self.l1._bidadj_strat['strategy'][i]>0)
+                self.assertEqual(self.l1._bidadj_strat['profitability'][i], 0)
 
     @unittest.skip('For now')    
     def test_make_strategy(self):
@@ -289,6 +316,11 @@ class TestTrader(unittest.TestCase):
         expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
                     'quantity': 1, 'side': Side.BID, 'price': 125}
         self.assertDictEqual(q, expected)
+        
+    def test_match_oi_strat_MML(self):
+        #oi_state is 24 bits
+        signal = '011111000000011111000000'
+        print(self.l1._match_oi_strat2(signal))
     @unittest.skip('For now')
     def test_match_strategy_MML(self):
         #arr_state is 16 bits

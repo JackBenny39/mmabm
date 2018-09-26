@@ -216,27 +216,78 @@ class MarketMakerL():
         self.cancel_collector = []
         self._quote_sequence = 0
         
-        self._oi_strat = self._make_oi_strat(geneset[0])
+        self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._arr_strat = self._make_arr_strat(geneset[1])
+        self._askadj_strat = self._make_bidask_strat(geneset[2])
+        self._bidadj_strat = self._make_bidask_strat(geneset[3])
         
         self._strategy = geneset
         self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
         
+    def _make_oi_strat2(self, oi_chroms):
+        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
+        return oi_strat, len(list(oi_chroms.keys())[0])
+    
     def _make_oi_strat(self, oi_chroms):
         oi_strat = {'chromosomes': oi_chroms}
         oi_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in oi_chroms.items()}
         oi_strat['accuracy'] = {k: 0 for k in oi_chroms.keys()}
         oi_strat['gene_count'] = len(list(oi_chroms.keys())[0])
         return oi_strat
-        
+    
     def _make_arr_strat(self, arr_chroms):
         arr_strat = {'chromosomes': arr_chroms}
-        #arr_strat['strategy'] = {k: int(v[:], 2) for k, v in arr_chroms.items()}
         arr_strat['strategy'] = {k: int(v, 2) for k, v in arr_chroms.items()}
         arr_strat['accuracy'] = {k: 0 for k in arr_chroms.keys()}
         arr_strat['gene_count'] = len(list(arr_chroms.keys())[0])
         return arr_strat
         
+    def _make_bidask_strat(self, ba_chroms):
+        ba_strat = {'chromosomes': ba_chroms}
+        ba_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in ba_chroms.items()}
+        ba_strat['profitability'] = {k: 0 for k in ba_chroms.keys()}
+        ba_strat['gene_count'] = len(list(ba_chroms.keys())[0])
+        return ba_strat
+    
+    def _match_oi_strat(self, market_state):
+        temp_strength = []
+        max_strength = 0
+        max_accuracy = 0
+        for cond in self._oi_strat['chromosomes'].keys():
+            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._oi_strat['gene_count'])]):
+                strength = sum([cond[x] == market_state[x] for x in range(self._oi_strat['gene_count'])])
+                if strength > max_strength:
+                    temp_strength.clear()
+                    temp_strength.append(cond)
+                    max_strength = strength
+                    max_accuracy = self._oi_strat['accuracy'][cond]
+                elif strength == max_strength:
+                    if self._oi_strat['accuracy'][cond] > max_accuracy:
+                        temp_strength.clear()
+                        max_accuracy = self._oi_strat['accuracy'][cond]
+                    temp_strength.append(cond)          
+        return {cond: self._oi_strat['accuracy'][cond] for cond in temp_strength}
+    
+    def _match_oi_strat2(self, market_state):
+        temp_strats = []
+        max_strength = 0
+        max_accuracy = 0
+        for cond in self._oi_strat.keys():
+            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._oi_len)]):
+                strength = sum([cond[x] == market_state[x] for x in range(self._oi_len)])
+                if strength > max_strength:
+                    temp_strats.clear()
+                    temp_strats.append(cond)
+                    max_strength = strength
+                    max_accuracy = self._oi_strat[cond]['accuracy']
+                elif strength == max_strength:
+                    if self._oi_strat[cond]['accuracy'] > max_accuracy:
+                        temp_strats.clear()
+                        temp_strats.append(cond)
+                        max_accuracy = self._oi_strat[cond]['accuracy']
+                    elif self._oi_strat[cond]['accuracy'] == max_accuracy:
+                        temp_strats.append(cond)         
+        return temp_strats
     
     def _match_strategy(self, strat_n, market_state): # convert gene to a list or maybe input as a list
         temp_strength = {}
@@ -262,9 +313,10 @@ class MarketMakerL():
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    def _update_midpoint(self, oib_signal):
-        delta_inv = self._position[-1] - self._position[-2]
-        flow = self._match_strategy(1, oib_signal)
+    def _update_midpoint(self, step, oib_signal):
+        delta_inv = self._position[step-1] - self._position[step-2]
+        strategies = self._match_oi_strat2(oib_signal)
+        flow = sum([self._oi_strat[c]['strategy'] for c in strategies])/len(strategies)
         self._mid += flow + int(self._c * delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
@@ -276,7 +328,7 @@ class MarketMakerL():
         return bid, ask
         
         
-    def process_signal(self, step, tob, signal):
+    def process_signal(self, step, signal):
         '''
         The signal is a dict with features of the market state: 
             arrival count: 16 bits
@@ -297,7 +349,7 @@ class MarketMakerL():
         self.cancel_collector.clear()
         
         # compute new midpoint
-        self._update_midpoint(signal['oib'])
+        self._update_midpoint(step, signal['oib'])
         
         # compute new spread
         bid, ask = self._make_spread(signal['arr'], signal['vol'])
