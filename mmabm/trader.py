@@ -216,9 +216,28 @@ class MarketMakerL():
         self.cancel_collector = []
         self._quote_sequence = 0
         
+        self._oi_strat = self._make_oi_strat(geneset[0])
+        self._arr_strat = self._make_arr_strat(geneset[1])
+        
         self._strategy = geneset
         self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
         
+    def _make_oi_strat(self, oi_chroms):
+        oi_strat = {'chromosomes': oi_chroms}
+        oi_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in oi_chroms.items()}
+        oi_strat['accuracy'] = {k: 0 for k in oi_chroms.keys()}
+        oi_strat['gene_count'] = len(list(oi_chroms.keys())[0])
+        return oi_strat
+        
+    def _make_arr_strat(self, arr_chroms):
+        arr_strat = {'chromosomes': arr_chroms}
+        #arr_strat['strategy'] = {k: int(v[:], 2) for k, v in arr_chroms.items()}
+        arr_strat['strategy'] = {k: int(v, 2) for k, v in arr_chroms.items()}
+        arr_strat['accuracy'] = {k: 0 for k in arr_chroms.keys()}
+        arr_strat['gene_count'] = len(list(arr_chroms.keys())[0])
+        return arr_strat
+        
+    
     def _match_strategy(self, strat_n, market_state): # convert gene to a list or maybe input as a list
         temp_strength = {}
         max_strength = 0
