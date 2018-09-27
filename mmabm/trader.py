@@ -217,12 +217,12 @@ class MarketMakerL():
         self._quote_sequence = 0
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
-        self._arr_strat = self._make_arr_strat(geneset[1])
-        self._askadj_strat = self._make_bidask_strat(geneset[2])
-        self._bidadj_strat = self._make_bidask_strat(geneset[3])
+        self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
+        self._askadj_strat, self._ask_len = self._make_bidask_strat2(geneset[2])
+        self._bidadj_strat, self._bid_len = self._make_bidask_strat2(geneset[3])
         
-        self._strategy = geneset
-        self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
+        #self._strategy = geneset
+        #self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
         
     def _make_oi_strat2(self, oi_chroms):
         oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
@@ -235,12 +235,20 @@ class MarketMakerL():
         oi_strat['gene_count'] = len(list(oi_chroms.keys())[0])
         return oi_strat
     
+    def _make_arr_strat2(self, arr_chroms):
+        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': 0} for k, v in arr_chroms.items()}
+        return arr_strat, len(list(arr_chroms.keys())[0])
+    
     def _make_arr_strat(self, arr_chroms):
         arr_strat = {'chromosomes': arr_chroms}
         arr_strat['strategy'] = {k: int(v, 2) for k, v in arr_chroms.items()}
         arr_strat['accuracy'] = {k: 0 for k in arr_chroms.keys()}
         arr_strat['gene_count'] = len(list(arr_chroms.keys())[0])
         return arr_strat
+    
+    def _make_bidask_strat2(self, ba_chroms):
+        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
+        return ba_strat, len(list(ba_chroms.keys())[0])
         
     def _make_bidask_strat(self, ba_chroms):
         ba_strat = {'chromosomes': ba_chroms}
@@ -269,6 +277,7 @@ class MarketMakerL():
         return {cond: self._oi_strat['accuracy'][cond] for cond in temp_strength}
     
     def _match_oi_strat2(self, market_state):
+        '''Returns all strategies with the maximum accuracy'''
         temp_strats = []
         max_strength = 0
         max_accuracy = 0
@@ -289,19 +298,71 @@ class MarketMakerL():
                         temp_strats.append(cond)         
         return temp_strats
     
-    def _match_strategy(self, strat_n, market_state): # convert gene to a list or maybe input as a list
-        temp_strength = {}
+    def _match_arr_strat2(self, market_state):
+        '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
+        temp_strats = []
         max_strength = 0
-        for cond in self._strategy[strat_n].keys():
-            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._strat_len[strat_n])]):
-                strength = sum([cond[x] == market_state[x] for x in range(self._strat_len[strat_n])])
+        max_accuracy = 0
+        for cond in self._arr_strat.keys():
+            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._arr_len)]):
+                strength = sum([cond[x] == market_state[x] for x in range(self._arr_len)])
                 if strength > max_strength:
-                    temp_strength.clear()
-                    temp_strength.update({cond: strength})
+                    temp_strats.clear()
+                    temp_strats.append(cond)
                     max_strength = strength
+                    max_accuracy = self._arr_strat[cond]['accuracy']
                 elif strength == max_strength:
-                    temp_strength.update({cond: strength})
-        return temp_strength
+                    if self._arr_strat[cond]['accuracy'] > max_accuracy:
+                        temp_strats.clear()
+                        temp_strats.append(cond)
+                        max_accuracy = self._arr_strat[cond]['accuracy']
+                    elif self._arr_strat[cond]['accuracy'] == max_accuracy:
+                        temp_strats.append(cond)         
+        return temp_strats[random.randrange(len(temp_strats))]
+                
+    def _match_ask_strat(self, arrivals):
+        '''Returns all strategies with the maximum accuracy'''
+        temp_strats = []
+        max_strength = 0
+        max_accuracy = 0
+        for cond in self._askadj_strat.keys():
+            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._ask_len)]):
+                strength = sum([cond[x] == arrivals[x] for x in range(self._ask_len)])
+                if strength > max_strength:
+                    temp_strats.clear()
+                    temp_strats.append(cond)
+                    max_strength = strength
+                    max_accuracy = self._askadj_strat[cond]['accuracy']
+                elif strength == max_strength:
+                    if self._askadj_strat[cond]['accuracy'] > max_accuracy:
+                        temp_strats.clear()
+                        temp_strats.append(cond)
+                        max_accuracy = self._askadj_strat[cond]['accuracy']
+                    elif self._askadj_strat[cond]['accuracy'] == max_accuracy:
+                        temp_strats.append(cond)         
+        return temp_strats
+    
+    def _match_bid_strat(self, arrivals):
+        '''Returns all strategies with the maximum accuracy'''
+        temp_strats = []
+        max_strength = 0
+        max_accuracy = 0
+        for cond in self._bidadj_strat.keys():
+            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._bid_len)]):
+                strength = sum([cond[x] == arrivals[x] for x in range(self._bid_len)])
+                if strength > max_strength:
+                    temp_strats.clear()
+                    temp_strats.append(cond)
+                    max_strength = strength
+                    max_accuracy = self._bidadj_strat[cond]['accuracy']
+                elif strength == max_strength:
+                    if self._bidadj_strat[cond]['accuracy'] > max_accuracy:
+                        temp_strats.clear()
+                        temp_strats.append(cond)
+                        max_accuracy = self._bidadj_strat[cond]['accuracy']
+                    elif self._bidadj_strat[cond]['accuracy'] == max_accuracy:
+                        temp_strats.append(cond)         
+        return temp_strats
                     
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
@@ -314,19 +375,30 @@ class MarketMakerL():
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
     def _update_midpoint(self, step, oib_signal):
+        '''Compute change in inventory; obtain the most accurate oi strategies;
+        average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
         delta_inv = self._position[step-1] - self._position[step-2]
         strategies = self._match_oi_strat2(oib_signal)
         flow = sum([self._oi_strat[c]['strategy'] for c in strategies])/len(strategies)
         self._mid += flow + int(self._c * delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
-        arrivals = self._match_strategy(0, arr_signal)
-        ask_adj = self._match_strategy(3, arrivals)
-        bid_adj = self._match_strategy(2, arrivals)
+        '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
+        average the most profitable adjustment strategies (if more than one); insert into
+        ask and bid price adjustment; check for non-positive spread'''
+        arrivals = self._match_arr_strat2(arr_signal)
+        ask_strats = self._match_ask_strat(self._arr_strat[arrivals]['action'])
+        bid_strats = self._match_bid_strat(self._arr_strat[arrivals]['action'])
+        ask_adj = sum([self._askadj_strat[c]['strategy'] for c in ask_strats])/len(ask_strats)
+        bid_adj = sum([self._bidadj_strat[c]['strategy'] for c in bid_strats])/len(bid_strats)
         ask = self._mid + min(self._a*vol_signal, self._b) + ask_adj
         bid = self._mid - min(self._a*vol_signal, self._b) + bid_adj
+        while ask - bid <= 0:
+            if random.random() > 0.5:
+                ask+=1
+            else:
+                bid-=1
         return bid, ask
-        
         
     def process_signal(self, step, signal):
         '''
@@ -355,6 +427,18 @@ class MarketMakerL():
         bid, ask = self._make_spread(signal['arr'], signal['vol'])
         
         # cancel orders if inside new spread
+        if bid < self._bid_book_prices[-1]:
+            for p in range(bid, self._bid_book_prices[-1]+1):
+                for q in self._bid_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
+                
+            
+            
+            
+        if ask > self._ask_book_prices[0]:
+            for p in range(self._ask_book_prices[0], ask+1):
+                for q in self._ask_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
         
         
         # add new orders to make depth and/or establish new inside spread
