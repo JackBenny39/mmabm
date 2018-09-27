@@ -220,24 +220,15 @@ class MarketMakerL():
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
         self._askadj_strat, self._ask_len = self._make_bidask_strat2(geneset[2])
         self._bidadj_strat, self._bid_len = self._make_bidask_strat2(geneset[3])
-        
-        #self._strategy = geneset
-        #self._strat_len = len(list(geneset[0].keys())[0]), len(list(geneset[1].keys())[0]), len(list(geneset[2].keys())[0]), len(list(geneset[3].keys())[0])
-        
-    def _make_oi_strat2(self, oi_chroms):
-        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
-        return oi_strat, len(list(oi_chroms.keys())[0])
-    
+
+
+    ''' Old Strategy '''
     def _make_oi_strat(self, oi_chroms):
         oi_strat = {'chromosomes': oi_chroms}
         oi_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in oi_chroms.items()}
         oi_strat['accuracy'] = {k: 0 for k in oi_chroms.keys()}
         oi_strat['gene_count'] = len(list(oi_chroms.keys())[0])
         return oi_strat
-    
-    def _make_arr_strat2(self, arr_chroms):
-        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': 0} for k, v in arr_chroms.items()}
-        return arr_strat, len(list(arr_chroms.keys())[0])
     
     def _make_arr_strat(self, arr_chroms):
         arr_strat = {'chromosomes': arr_chroms}
@@ -246,10 +237,6 @@ class MarketMakerL():
         arr_strat['gene_count'] = len(list(arr_chroms.keys())[0])
         return arr_strat
     
-    def _make_bidask_strat2(self, ba_chroms):
-        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
-        return ba_strat, len(list(ba_chroms.keys())[0])
-        
     def _make_bidask_strat(self, ba_chroms):
         ba_strat = {'chromosomes': ba_chroms}
         ba_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in ba_chroms.items()}
@@ -257,6 +244,21 @@ class MarketMakerL():
         ba_strat['gene_count'] = len(list(ba_chroms.keys())[0])
         return ba_strat
     
+    ''' New Strategy '''    
+    def _make_oi_strat2(self, oi_chroms):
+        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
+        return oi_strat, len(list(oi_chroms.keys())[0])
+    
+    def _make_arr_strat2(self, arr_chroms):
+        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': 0} for k, v in arr_chroms.items()}
+        return arr_strat, len(list(arr_chroms.keys())[0])
+    
+    def _make_bidask_strat2(self, ba_chroms):
+        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
+        return ba_strat, len(list(ba_chroms.keys())[0])
+        
+    
+    ''' Old Matching '''
     def _match_oi_strat(self, market_state):
         temp_strength = []
         max_strength = 0
@@ -276,6 +278,7 @@ class MarketMakerL():
                     temp_strength.append(cond)          
         return {cond: self._oi_strat['accuracy'][cond] for cond in temp_strength}
     
+    ''' New Matching '''
     def _match_oi_strat2(self, market_state):
         '''Returns all strategies with the maximum accuracy'''
         temp_strats = []
@@ -363,7 +366,8 @@ class MarketMakerL():
                     elif self._bidadj_strat[cond]['accuracy'] == max_accuracy:
                         temp_strats.append(cond)         
         return temp_strats
-                    
+    
+    ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
         '''Make one add quote (dict)'''
         self._quote_sequence += 1
@@ -373,7 +377,8 @@ class MarketMakerL():
     def _make_cancel_quote(self, q, time):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
-        
+    
+    ''' Update Orderbook '''    
     def _update_midpoint(self, step, oib_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies;
         average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
