@@ -1,3 +1,4 @@
+import bisect
 import random
 
 import numpy as np
@@ -202,8 +203,9 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, a, b, c, geneset):
+    def __init__(self, name, maxq, a, b, c, geneset):
         self.trader_id = name # trader id
+        self._maxq = maxq
         self._a = a
         self._b = b
         self._c = c
@@ -256,8 +258,7 @@ class MarketMakerL():
     def _make_bidask_strat2(self, ba_chroms):
         ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
-        
-    
+
     ''' Old Matching '''
     def _match_oi_strat(self, market_state):
         temp_strength = []
@@ -377,6 +378,55 @@ class MarketMakerL():
     def _make_cancel_quote(self, q, time):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
+        
+    ''' Orderbook Bookkeeping '''
+    def add_order(self, order):
+        '''
+        Use insort to maintain on ordered list of prices which serve as pointers
+        to the orders.
+        '''
+        book_order = {'order_id': order['order_id'], 'timestamp': order['timestamp'], 'quantity': order['quantity'],
+                      'side': order['side'], 'price': order['price']}
+        if order['side'] == Side.BID:
+            book_prices = self._bid_book_prices
+            book = self._bid_book
+        else:
+            book_prices = self._ask_book_prices
+            book = self._ask_book
+        if order['price'] in book_prices:
+            book[order['price']]['num_orders'] += 1
+            book[order['price']]['size'] += order['quantity']
+            book[order['price']]['order_ids'].append(book_order['order_id'])
+            book[order['price']]['orders'][book_order['order_id']] = book_order
+        else:
+            bisect.insort(book_prices, order['price'])
+            book[order['price']] = {'num_orders': 1, 'size': order['quantity'], 'order_ids': [book_order['order_id']],
+                                    'orders': {book_order['order_id']: book_order}}
+
+    def _remove_order(self, order_side, order_price, order_id):
+        '''Pop the order_id; if  order_id exists, updates the book.'''
+        if order_side == Side.BID:
+            book_prices = self._bid_book_prices
+            book = self._bid_book
+        else:
+            book_prices = self._ask_book_prices
+            book = self._ask_book
+        is_order = book[order_price]['orders'].pop(order_id, None)
+        if is_order:
+            book[order_price]['num_orders'] -= 1
+            book[order_price]['size'] -= is_order['quantity']
+            book[order_price]['order_ids'].remove(order_id)
+            if book[order_price]['num_orders'] == 0:
+                book_prices.remove(order_price)
+
+    def _modify_order(self, order_side, order_quantity, order_id, order_price):
+        '''Modify order quantity; if quantity is 0, removes the order.'''
+        book = self._bid_book if order_side == Side.BID else self._ask_book
+        if order_quantity < book[order_price]['orders'][order_id]['quantity']:
+            book[order_price]['size'] -= order_quantity
+            book[order_price]['orders'][order_id]['quantity'] -= order_quantity
+        else:
+            self._remove_order(order_side, order_price, order_id)
     
     ''' Update Orderbook '''    
     def _update_midpoint(self, step, oib_signal):
@@ -444,7 +494,6 @@ class MarketMakerL():
             for p in range(self._ask_book_prices[0], ask):
                 for q in self._ask_book[p]:
                     self.cancel_collector.append(self._make_cancel_quote(q, step))
-        
         
         # add new orders to make depth and/or establish new inside spread
         
