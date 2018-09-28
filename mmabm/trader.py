@@ -211,8 +211,10 @@ class MarketMakerL():
         self._c = c
         self._bid_book = {}
         self._bid_book_prices = []
+        
         self._ask_book = {}
         self._ask_book_prices = []
+        
         self._position = []
         self.quote_collector = []
         self.cancel_collector = []
@@ -224,28 +226,6 @@ class MarketMakerL():
         self._bidadj_strat, self._bid_len = self._make_bidask_strat2(geneset[3])
 
 
-    ''' Old Strategy '''
-    def _make_oi_strat(self, oi_chroms):
-        oi_strat = {'chromosomes': oi_chroms}
-        oi_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in oi_chroms.items()}
-        oi_strat['accuracy'] = {k: 0 for k in oi_chroms.keys()}
-        oi_strat['gene_count'] = len(list(oi_chroms.keys())[0])
-        return oi_strat
-    
-    def _make_arr_strat(self, arr_chroms):
-        arr_strat = {'chromosomes': arr_chroms}
-        arr_strat['strategy'] = {k: int(v, 2) for k, v in arr_chroms.items()}
-        arr_strat['accuracy'] = {k: 0 for k in arr_chroms.keys()}
-        arr_strat['gene_count'] = len(list(arr_chroms.keys())[0])
-        return arr_strat
-    
-    def _make_bidask_strat(self, ba_chroms):
-        ba_strat = {'chromosomes': ba_chroms}
-        ba_strat['strategy'] = {k: int(v[1:], 2)*(1 if int(v[0]) else -1) for k, v in ba_chroms.items()}
-        ba_strat['profitability'] = {k: 0 for k in ba_chroms.keys()}
-        ba_strat['gene_count'] = len(list(ba_chroms.keys())[0])
-        return ba_strat
-    
     ''' New Strategy '''    
     def _make_oi_strat2(self, oi_chroms):
         oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
@@ -259,26 +239,6 @@ class MarketMakerL():
         ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
 
-    ''' Old Matching '''
-    def _match_oi_strat(self, market_state):
-        temp_strength = []
-        max_strength = 0
-        max_accuracy = 0
-        for cond in self._oi_strat['chromosomes'].keys():
-            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._oi_strat['gene_count'])]):
-                strength = sum([cond[x] == market_state[x] for x in range(self._oi_strat['gene_count'])])
-                if strength > max_strength:
-                    temp_strength.clear()
-                    temp_strength.append(cond)
-                    max_strength = strength
-                    max_accuracy = self._oi_strat['accuracy'][cond]
-                elif strength == max_strength:
-                    if self._oi_strat['accuracy'][cond] > max_accuracy:
-                        temp_strength.clear()
-                        max_accuracy = self._oi_strat['accuracy'][cond]
-                    temp_strength.append(cond)          
-        return {cond: self._oi_strat['accuracy'][cond] for cond in temp_strength}
-    
     ''' New Matching '''
     def _match_oi_strat2(self, market_state):
         '''Returns all strategies with the maximum accuracy'''
@@ -379,8 +339,8 @@ class MarketMakerL():
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
-    ''' Orderbook Bookkeeping '''
-    def add_order(self, order):
+    ''' Orderbook Bookkeeping with List'''
+    def _add_order(self, order):
         '''
         Use insort to maintain on ordered list of prices which serve as pointers
         to the orders.
@@ -427,7 +387,7 @@ class MarketMakerL():
             book[order_price]['orders'][order_id]['quantity'] -= order_quantity
         else:
             self._remove_order(order_side, order_price, order_id)
-    
+
     ''' Update Orderbook '''    
     def _update_midpoint(self, step, oib_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies;
@@ -454,6 +414,48 @@ class MarketMakerL():
             else:
                 bid-=1
         return bid, ask
+    
+    def _update_ask_book(self, step, ask):
+        best_ask = self._ask_book_prices[0]
+        if ask < best_ask:
+            for p in range(ask, best_ask):
+                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
+                self.quote_collector.append(q)
+                self._(q)
+            if self._ask_book[best_ask]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
+                self._add_order(q)
+        elif ask > best_ask:
+            for p in range(best_ask, ask):
+                for q in self._ask_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
+                for c in self.cancel_collector:
+                    self._remove_order(c['side'], c['price'], c['order_id'])
+        else:
+            if self._ask_book[best_ask]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
+                self._add_order(q)
+                
+    def _update_bid_book(self, step, bid):
+        best_bid = self._bid_book_prices[-1]
+        if bid > best_bid:
+            for p in range(best_bid+1, bid+1):
+                q = self._make_add_quote(step, Side.BID, p, self._maxq)
+                self.quote_collector.append(q)
+                self._add_order(q)
+            if self._bid_book[best_bid]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+                self._add_order(q)
+        elif bid < best_bid:
+            for p in range(bid+1, best_bid+1):
+                for q in self._bid_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
+                for c in self.cancel_collector:
+                    self._remove_order(c['side'], c['price'], c['order_id'])
+        else:
+            if self._bid_book[best_bid]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+                self._add_order(q)
         
     def process_signal(self, step, signal):
         '''
@@ -481,28 +483,14 @@ class MarketMakerL():
         # compute new spread
         bid, ask = self._make_spread(signal['arr'], signal['vol'])
         
-        # cancel orders if inside new spread
-        if bid < self._bid_book_prices[-1]:
-            for p in range(bid+1, self._bid_book_prices[-1]+1):
-                for q in self._bid_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-                
-            
-            
-            
-        if ask > self._ask_book_prices[0]:
-            for p in range(self._ask_book_prices[0], ask):
-                for q in self._ask_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-        
-        # add new orders to make depth and/or establish new inside spread
-        
+        # cancel old orders or add new orders to make depth and/or establish new inside spread
+        self._update_ask_book(step, ask)
+        self._update_bid_book(step, bid)
         
         # update scores for predictors
-
         
+    
         
-
 
 class PennyJumper(ZITrader):
     '''
