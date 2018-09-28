@@ -436,10 +436,16 @@ class MarketMakerL():
                 q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
                 self._add_order(q)
         if len(self._ask_book_prices) < 20:
-            for p in range(self._ask_book_prices[-1] + 1, self._ask_book_prices[-1] + 21 - len(self._ask_book_prices)):
+            for p in range(self._ask_book_prices[-1] + 1, self._ask_book_prices[-1] + 41 - len(self._ask_book_prices)):
                 q = self._make_add_quote(step, Side.ASK, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
+        if len(self._ask_book_prices) > 60:
+            for p in range(self._ask_book_prices[-1] - 20, self._ask_book_prices[-1]+1):
+                for q in self._ask_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
+                for c in self.cancel_collector:
+                    self._remove_order(c['side'], c['price'], c['order_id'])
                 
     def _update_bid_book(self, step, bid):
         best_bid = self._bid_book_prices[-1]
@@ -462,10 +468,16 @@ class MarketMakerL():
                 q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
                 self._add_order(q)
         if len(self._bid_book_prices) < 20:
-            for p in range(self._bid_book_prices[0] - 20 + self._bid_book_prices, self._bid_book_prices[0]):
+            for p in range(self._bid_book_prices[0] - 40 + self._bid_book_prices, self._bid_book_prices[0]):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
+        if len(self._bid_book_prices) > 60:
+            for p in range(self._bid_book_prices[0], self._bid_book_prices[0]+21):
+                for q in self._bid_book[p]:
+                    self.cancel_collector.append(self._make_cancel_quote(q, step))
+                for c in self.cancel_collector:
+                    self._remove_order(c['side'], c['price'], c['order_id'])
         
     def process_signal(self, step, signal):
         '''
