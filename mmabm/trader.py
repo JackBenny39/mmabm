@@ -192,8 +192,8 @@ class MarketMakerL():
     What the MML does: prepares ideal order book; compares to actual; add/cancel to make ideal == actual.
     MML chooses: quote midpoint; spread; price range for bids and asks; depth at those prices.
     Midpoint: function of signed order imbalance
-    Spread: function of absolute order imbalance
-    Depth: function of absolute order imbalance
+    Spread: function of volatility and expected order flow
+    Depth: predetermined minimum and maximum range (for now)
     Price range: emergent outcome
     
     Public attributes:
@@ -435,6 +435,11 @@ class MarketMakerL():
             if self._ask_book[best_ask]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
                 self._add_order(q)
+        if len(self._ask_book_prices) < 20:
+            for p in range(self._ask_book_prices[-1] + 1, self._ask_book_prices[-1] + 21 - len(self._ask_book_prices)):
+                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
+                self.quote_collector.append(q)
+                self._add_order(q)
                 
     def _update_bid_book(self, step, bid):
         best_bid = self._bid_book_prices[-1]
@@ -455,6 +460,11 @@ class MarketMakerL():
         else:
             if self._bid_book[best_bid]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+                self._add_order(q)
+        if len(self._bid_book_prices) < 20:
+            for p in range(self._bid_book_prices[0] - 20 + self._bid_book_prices, self._bid_book_prices[0]):
+                q = self._make_add_quote(step, Side.BID, p, self._maxq)
+                self.quote_collector.append(q)
                 self._add_order(q)
         
     def process_signal(self, step, signal):
