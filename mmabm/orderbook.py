@@ -68,10 +68,11 @@ class Orderbook(object):
             book_prices = self._ask_book_prices
             book = self._ask_book
         if order['price'] in book_prices:
-            book[order['price']]['num_orders'] += 1
-            book[order['price']]['size'] += order['quantity']
-            book[order['price']]['ex_ids'].append(self._ex_index)
-            book[order['price']]['orders'][self._ex_index] = book_order
+            level = book[order['price']]
+            level['num_orders'] += 1
+            level['size'] += order['quantity']
+            level['ex_ids'].append(self._ex_index)
+            level['orders'][self._ex_index] = book_order
         else:
             bisect.insort(book_prices, order['price'])
             book[order['price']] = {'num_orders': 1, 'size': order['quantity'], 'ex_ids': [self._ex_index],
@@ -97,10 +98,11 @@ class Orderbook(object):
             book = self._ask_book
         is_order = book[order_price]['orders'].pop(ex_id, None)
         if is_order:
-            book[order_price]['num_orders'] -= 1
-            book[order_price]['size'] -= is_order['quantity']
-            book[order_price]['ex_ids'].remove(ex_id)
-            if book[order_price]['num_orders'] == 0:
+            level = book[order_price]
+            level['num_orders'] -= 1
+            level['size'] -= is_order['quantity']
+            level['ex_ids'].remove(ex_id)
+            if level['num_orders'] == 0:
                 book_prices.remove(order_price)
             del self._lookup[is_order['trader_id']][is_order['order_id']]
 
