@@ -233,15 +233,15 @@ class MarketMakerL():
 
     ''' New Strategy '''    
     def _make_oi_strat2(self, oi_chroms):
-        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': 0} for k, v in oi_chroms.items()}
+        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0]} for k, v in oi_chroms.items()}
         return oi_strat, len(list(oi_chroms.keys())[0])
     
     def _make_arr_strat2(self, arr_chroms):
-        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': 0} for k, v in arr_chroms.items()}
+        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0]} for k, v in arr_chroms.items()}
         return arr_strat, len(list(arr_chroms.keys())[0])
     
     def _make_bidask_strat2(self, ba_chroms):
-        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': 0} for k, v in ba_chroms.items()}
+        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': [0, 0]} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
 
     ''' New Matching '''
@@ -257,13 +257,13 @@ class MarketMakerL():
                     self._current_oi_strat.clear()
                     self._current_oi_strat.append(cond)
                     max_strength = strength
-                    max_accuracy = self._oi_strat[cond]['accuracy']
+                    max_accuracy = self._oi_strat[cond]['accuracy'][0]
                 elif strength == max_strength:
-                    if self._oi_strat[cond]['accuracy'] > max_accuracy:
+                    if self._oi_strat[cond]['accuracy'][0] > max_accuracy:
                         self._current_oi_strat.clear()
                         self._current_oi_strat.append(cond)
-                        max_accuracy = self._oi_strat[cond]['accuracy']
-                    elif self._oi_strat[cond]['accuracy'] == max_accuracy:
+                        max_accuracy = self._oi_strat[cond]['accuracy'][0]
+                    elif self._oi_strat[cond]['accuracy'][0] == max_accuracy:
                         self._current_oi_strat.append(cond)
     
     def _match_arr_strat2(self, market_state):
@@ -278,13 +278,13 @@ class MarketMakerL():
                     temp_strats.clear()
                     temp_strats.append(cond)
                     max_strength = strength
-                    max_accuracy = self._arr_strat[cond]['accuracy']
+                    max_accuracy = self._arr_strat[cond]['accuracy'][0]
                 elif strength == max_strength:
-                    if self._arr_strat[cond]['accuracy'] > max_accuracy:
+                    if self._arr_strat[cond]['accuracy'][0] > max_accuracy:
                         temp_strats.clear()
                         temp_strats.append(cond)
-                        max_accuracy = self._arr_strat[cond]['accuracy']
-                    elif self._arr_strat[cond]['accuracy'] == max_accuracy:
+                        max_accuracy = self._arr_strat[cond]['accuracy'][0]
+                    elif self._arr_strat[cond]['accuracy'][0] == max_accuracy:
                         temp_strats.append(cond)         
         self._current_arr_strat = temp_strats[random.randrange(len(temp_strats))]
                 
@@ -300,13 +300,13 @@ class MarketMakerL():
                     self._current_ask_strat.clear()
                     self._current_ask_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._askadj_strat[cond]['profitability']
+                    max_profits = self._askadj_strat[cond]['profitability'][0]
                 elif strength == max_strength:
-                    if self._askadj_strat[cond]['profitability'] > max_profits:
+                    if self._askadj_strat[cond]['profitability'][0] > max_profits:
                         self._current_ask_strat.clear()
                         self._current_ask_strat.append(cond)
-                        max_profits = self._askadj_strat[cond]['profitability']
-                    elif self._askadj_strat[cond]['profitability'] == max_profits:
+                        max_profits = self._askadj_strat[cond]['profitability'][0]
+                    elif self._askadj_strat[cond]['profitability'][0] == max_profits:
                         self._current_ask_strat.append(cond)         
     
     def _match_bid_strat(self, arrivals):
@@ -321,14 +321,20 @@ class MarketMakerL():
                     self._current_bid_strat.clear()
                     self._current_bid_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._bidadj_strat[cond]['profitability']
+                    max_profits = self._bidadj_strat[cond]['profitability'][0]
                 elif strength == max_strength:
-                    if self._bidadj_strat[cond]['profitability'] > max_profits:
+                    if self._bidadj_strat[cond]['profitability'][0] > max_profits:
                         self._current_bid_strat.clear()
                         self._current_bid_strat.append(cond)
-                        max_profits = self._bidadj_strat[cond]['profitability']
-                    elif self._bidadj_strat[cond]['profitability'] == max_profits:
-                        self._current_bid_strat.append(cond)         
+                        max_profits = self._bidadj_strat[cond]['profitability'][0]
+                    elif self._bidadj_strat[cond]['profitability'][0] == max_profits:
+                        self._current_bid_strat.append(cond)
+                        
+    def _update_oi_acc(self, actual):
+        for strat in self._current_oi_strat:
+            self._oi_strat[strat]['accuracy'][0] = (self._oi_strat[strat]['accuracy'][0] * self._oi_strat[strat]['accuracy'][1]\
+                                                    + abs(actual - self._oi_strat[strat]['strategy']))/(self._oi_strat[strat]['accuracy'][1] + 1)
+            self._oi_strat[strat]['accuracy'][1] = self._oi_strat[strat]['accuracy'][1] + 1
     
     ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
@@ -500,6 +506,7 @@ class MarketMakerL():
             where a is sensitivity to volatility, b is a minimum and k is an adjustment based on arrival forecast
         '''
         # update scores for predictors
+        self._update_oi_acc(signal['oibv'])
         
         
         # clear the collectors
