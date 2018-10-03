@@ -263,7 +263,7 @@ class MarketMakerL():
                     max_strength = strength
                     max_accuracy = self._oi_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._oi_strat[cond]['accuracy'][-1] > max_accuracy:
+                    if self._oi_strat[cond]['accuracy'][-1] < max_accuracy:
                         self._current_oi_strat.clear()
                         self._current_oi_strat.append(cond)
                         max_accuracy = self._oi_strat[cond]['accuracy'][-1]
@@ -284,7 +284,7 @@ class MarketMakerL():
                     max_strength = strength
                     max_accuracy = self._arr_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._arr_strat[cond]['accuracy'][-1] > max_accuracy:
+                    if self._arr_strat[cond]['accuracy'][-1] < max_accuracy:
                         temp_strats.clear()
                         temp_strats.append(cond)
                         max_accuracy = self._arr_strat[cond]['accuracy'][-1]
