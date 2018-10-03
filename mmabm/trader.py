@@ -213,15 +213,16 @@ class MarketMakerL():
         self._bid_book_prices = []
         self._ask_book = {}
         self._ask_book_prices = []
-        
-        self._delta_inv = 0
-        self.quote_collector = []
-        self.cancel_collector = []
         self._quote_sequence = 0
         
-        self._position = 0
+        self.quote_collector = []
+        self.cancel_collector = []
+        
+        self._delta_inv = 0
         self._cash_flow = 0
         self.cash_flow_collector = []
+        
+        self._last_prices = []
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
@@ -260,13 +261,13 @@ class MarketMakerL():
                     self._current_oi_strat.clear()
                     self._current_oi_strat.append(cond)
                     max_strength = strength
-                    max_accuracy = self._oi_strat[cond]['accuracy'][0]
+                    max_accuracy = self._oi_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._oi_strat[cond]['accuracy'][0] > max_accuracy:
+                    if self._oi_strat[cond]['accuracy'][-1] > max_accuracy:
                         self._current_oi_strat.clear()
                         self._current_oi_strat.append(cond)
-                        max_accuracy = self._oi_strat[cond]['accuracy'][0]
-                    elif self._oi_strat[cond]['accuracy'][0] == max_accuracy:
+                        max_accuracy = self._oi_strat[cond]['accuracy'][-1]
+                    elif self._oi_strat[cond]['accuracy'][-1] == max_accuracy:
                         self._current_oi_strat.append(cond)
     
     def _match_arr_strat2(self, market_state):
@@ -281,13 +282,13 @@ class MarketMakerL():
                     temp_strats.clear()
                     temp_strats.append(cond)
                     max_strength = strength
-                    max_accuracy = self._arr_strat[cond]['accuracy'][0]
+                    max_accuracy = self._arr_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._arr_strat[cond]['accuracy'][0] > max_accuracy:
+                    if self._arr_strat[cond]['accuracy'][-1] > max_accuracy:
                         temp_strats.clear()
                         temp_strats.append(cond)
-                        max_accuracy = self._arr_strat[cond]['accuracy'][0]
-                    elif self._arr_strat[cond]['accuracy'][0] == max_accuracy:
+                        max_accuracy = self._arr_strat[cond]['accuracy'][-1]
+                    elif self._arr_strat[cond]['accuracy'][-1] == max_accuracy:
                         temp_strats.append(cond)         
         self._current_arr_strat = temp_strats[random.randrange(len(temp_strats))]
                 
@@ -303,13 +304,13 @@ class MarketMakerL():
                     self._current_ask_strat.clear()
                     self._current_ask_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._askadj_strat[cond]['profitability'][0]
+                    max_profits = self._askadj_strat[cond]['profitability'][-1]
                 elif strength == max_strength:
-                    if self._askadj_strat[cond]['profitability'][0] > max_profits:
+                    if self._askadj_strat[cond]['profitability'][-1] > max_profits:
                         self._current_ask_strat.clear()
                         self._current_ask_strat.append(cond)
-                        max_profits = self._askadj_strat[cond]['profitability'][0]
-                    elif self._askadj_strat[cond]['profitability'][0] == max_profits:
+                        max_profits = self._askadj_strat[cond]['profitability'][-1]
+                    elif self._askadj_strat[cond]['profitability'][-1] == max_profits:
                         self._current_ask_strat.append(cond)         
     
     def _match_bid_strat(self, arrivals):
@@ -324,13 +325,13 @@ class MarketMakerL():
                     self._current_bid_strat.clear()
                     self._current_bid_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._bidadj_strat[cond]['profitability'][0]
+                    max_profits = self._bidadj_strat[cond]['profitability'][-1]
                 elif strength == max_strength:
-                    if self._bidadj_strat[cond]['profitability'][0] > max_profits:
+                    if self._bidadj_strat[cond]['profitability'][-1] > max_profits:
                         self._current_bid_strat.clear()
                         self._current_bid_strat.append(cond)
-                        max_profits = self._bidadj_strat[cond]['profitability'][0]
-                    elif self._bidadj_strat[cond]['profitability'][0] == max_profits:
+                        max_profits = self._bidadj_strat[cond]['profitability'][-1]
+                    elif self._bidadj_strat[cond]['profitability'][-1] == max_profits:
                         self._current_bid_strat.append(cond)
 
     ''' Update accuracy/profitability forecast '''                    
@@ -345,15 +346,23 @@ class MarketMakerL():
         self._arr_strat[self._current_arr_strat]['accuracy'][1] += 1
         self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._oi_strat[self._current_arr_strat]['accuracy'][1]
         
-    def _update_ask_pft(self):
-        pass
-    
-    def _update_bid_pft(self):
-        pass
+    def _update_profits(self, mid):
+        if self._last_prices:
+            n_trades = len(self._last_prices)
+            profit = sum([abs(x - mid) for x in self._last_prices])
+            for strat in self._current_ask_strat: # sub out references
+                self._askadj_strat[strat]['profitability'][0] += profit
+                self._askadj_strat[strat]['profitability'][1] += n_trades
+                self._askadj_strat[strat]['profitability'][-1] = self._askadj_strat[strat]['profitability'][0]/self._askadj_strat[strat]['profitability'][1]
+            for strat in self._current_bid_strat: # sub out references
+                self._bidadj_strat[strat]['profitability'][0] += profit
+                self._bidadj_strat[strat]['profitability'][1] += n_trades
+                self._bidadj_strat[strat]['profitability'][-1] = self._bidadj_strat[strat]['profitability'][0]/self._bidadj_strat[strat]['profitability'][1]
     
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
         '''Modify _cash_flow and _delta_inv; update the local_book'''
+        self._last_prices.append(confirm['price'])
         if confirm['side'] == Side.BID:
             self._cash_flow -= confirm['price']*confirm['quantity']
             self._delta_inv += confirm['quantity']
@@ -537,9 +546,7 @@ class MarketMakerL():
         # update scores for predictors
         self._update_oi_acc(signal['oibv'])
         self._update_arr_acc(signal['arrv'])
-        self._update_ask_pft()
-        self._update_bid_pft()
-        
+        self._update_profits(signal['mid'])
         
         # clear the collectors
         self.quote_collector.clear()
@@ -555,10 +562,11 @@ class MarketMakerL():
         self._update_ask_book(step, ask)
         self._update_bid_book(step, bid)
         
-        # update cash flow collector, reset inventory
+        # update cash flow collector, reset inventory, clear recent prices
         self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
                                          'delta_inv': self._delta_inv})
         self._delta_inv = 0
+        self._last_prices.clear()
         
 
 class PennyJumper(ZITrader):
