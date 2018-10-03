@@ -233,15 +233,15 @@ class MarketMakerL():
 
     ''' New Strategy '''    
     def _make_oi_strat2(self, oi_chroms):
-        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0]} for k, v in oi_chroms.items()}
+        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0, 0]} for k, v in oi_chroms.items()}
         return oi_strat, len(list(oi_chroms.keys())[0])
     
     def _make_arr_strat2(self, arr_chroms):
-        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0]} for k, v in arr_chroms.items()}
+        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 0]} for k, v in arr_chroms.items()}
         return arr_strat, len(list(arr_chroms.keys())[0])
     
     def _make_bidask_strat2(self, ba_chroms):
-        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': [0, 0]} for k, v in ba_chroms.items()}
+        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': [0, 0, 0]} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
 
     ''' New Matching '''
@@ -329,12 +329,25 @@ class MarketMakerL():
                         max_profits = self._bidadj_strat[cond]['profitability'][0]
                     elif self._bidadj_strat[cond]['profitability'][0] == max_profits:
                         self._current_bid_strat.append(cond)
-                        
+
+    ''' Update accuracy/profitability forecast '''                    
     def _update_oi_acc(self, actual):
-        for strat in self._current_oi_strat:
-            self._oi_strat[strat]['accuracy'][0] = (self._oi_strat[strat]['accuracy'][0] * self._oi_strat[strat]['accuracy'][1]\
-                                                    + abs(actual - self._oi_strat[strat]['strategy']))/(self._oi_strat[strat]['accuracy'][1] + 1)
-            self._oi_strat[strat]['accuracy'][1] = self._oi_strat[strat]['accuracy'][1] + 1
+        for strat in self._current_oi_strat: #sub out references
+            self._oi_strat[strat]['accuracy'][0] += abs(actual - self._oi_strat[strat]['strategy'])
+            self._oi_strat[strat]['accuracy'][1] += 1
+            self._oi_strat[strat]['accuracy'][-1] = self._oi_strat[strat]['accuracy'][0]/self._oi_strat[strat]['accuracy'][1]
+            
+    def _update_arr_acc(self, actual): #sub out references
+        self._arr_strat[self._current_arr_strat]['accuracy'][0] += abs(actual - self._arr_strat[self._current_arr_strat]['strategy'])
+        self._arr_strat[self._current_arr_strat]['accuracy'][1] += 1
+        self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._oi_strat[self._current_arr_strat]['accuracy'][1]
+        
+    def _update_ask_pft(self):
+        pass
+    
+    def _update_bid_pft(self):
+        pass
+    
     
     ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
@@ -434,6 +447,7 @@ class MarketMakerL():
                 self._add_order(q)
             if self._ask_book[best_ask]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
+                self.quote_collector.append(q)
                 self._add_order(q)
         elif ask > best_ask:
             for p in range(best_ask, ask):
@@ -444,6 +458,7 @@ class MarketMakerL():
         else:
             if self._ask_book[best_ask]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
+                self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._ask_book_prices) < 20:
             for p in range(self._ask_book_prices[-1] + 1, self._ask_book_prices[-1] + 41 - len(self._ask_book_prices)):
@@ -466,6 +481,7 @@ class MarketMakerL():
                 self._add_order(q)
             if self._bid_book[best_bid]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+                self.quote_collector.append(q)
                 self._add_order(q)
         elif bid < best_bid:
             for p in range(bid+1, best_bid+1):
@@ -476,6 +492,7 @@ class MarketMakerL():
         else:
             if self._bid_book[best_bid]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+                self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._bid_book_prices) < 20:
             for p in range(self._bid_book_prices[0] - 40 + self._bid_book_prices, self._bid_book_prices[0]):
@@ -507,6 +524,9 @@ class MarketMakerL():
         '''
         # update scores for predictors
         self._update_oi_acc(signal['oibv'])
+        self._update_arr_acc(signal['arrv'])
+        self._update_ask_pft()
+        self._update_bid_pft()
         
         
         # clear the collectors
