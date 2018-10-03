@@ -211,14 +211,17 @@ class MarketMakerL():
         self._c = c
         self._bid_book = {}
         self._bid_book_prices = []
-        
         self._ask_book = {}
         self._ask_book_prices = []
         
-        self._position = []
+        self._delta_inv = 0
         self.quote_collector = []
         self.cancel_collector = []
         self._quote_sequence = 0
+        
+        self._position = 0
+        self._cash_flow = 0
+        self.cash_flow_collector = []
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
@@ -348,6 +351,16 @@ class MarketMakerL():
     def _update_bid_pft(self):
         pass
     
+    ''' Handle Trades '''
+    def confirm_trade_local(self, confirm):
+        '''Modify _cash_flow and _delta_inv; update the local_book'''
+        if confirm['side'] == Side.BID:
+            self._cash_flow -= confirm['price']*confirm['quantity']
+            self._delta_inv += confirm['quantity']
+        else:
+            self._cash_flow += confirm['price']*confirm['quantity']
+            self._delta_inv -= confirm['quantity']
+        self._modify_order(confirm['side'], confirm['quantity'], confirm['order_id'], confirm['price'])
     
     ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
@@ -412,13 +425,12 @@ class MarketMakerL():
             self._remove_order(order_side, order_price, order_id)
 
     ''' Update Orderbook '''    
-    def _update_midpoint(self, step, oib_signal):
+    def _update_midpoint(self, oib_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies;
         average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
-        delta_inv = self._position[step-1] - self._position[step-2]
         self._match_oi_strat2(oib_signal)
         flow = sum([self._oi_strat[c]['strategy'] for c in self._current_oi_strat])/len(self._current_oi_strat)
-        self._mid += flow + int(self._c * delta_inv)
+        self._mid += flow + int(self._c * self._delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
         '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
@@ -534,7 +546,7 @@ class MarketMakerL():
         self.cancel_collector.clear()
         
         # compute new midpoint
-        self._update_midpoint(step, signal['oib'])
+        self._update_midpoint(signal['oib'])
         
         # compute new spread
         bid, ask = self._make_spread(signal['arr'], signal['vol'])
@@ -542,6 +554,11 @@ class MarketMakerL():
         # cancel old orders or add new orders to make depth and/or establish new inside spread
         self._update_ask_book(step, ask)
         self._update_bid_book(step, bid)
+        
+        # update cash flow collector, reset inventory
+        self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
+                                         'delta_inv': self._delta_inv})
+        self._delta_inv = 0
         
 
 class PennyJumper(ZITrader):
