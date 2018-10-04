@@ -156,11 +156,13 @@ class TestTrader(unittest.TestCase):
         
     ''' Strategy Matching Tests '''
     def test_match_oi_strat2(self):
-        ''' '221212222222222222020222' is the sole winning strategy with a max strength == 4  '''
+        ''' With seeds == 39, '221212222222222222020222' is the sole winning strategy with a max strength == 4  '''
         #oi_state is 24 bits
         signal = '011111000000011111000000'
         self.l1._match_oi_strat2(signal)
         self.assertEqual(self.l1._current_oi_strat[0], '221212222222222222020222')
+        self.assertTrue(all([(self.l1._current_oi_strat[0][x] == signal[x] or self.l1._current_oi_strat[0][x] == '2') for x in range(self.l1._oi_len)]))
+        self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
         
     def test_match_arr_strat2(self):
         pass
