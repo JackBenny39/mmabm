@@ -165,13 +165,31 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
         
     def test_match_arr_strat2(self):
-        pass
+        ''' With seeds == 39, '1222102221222222' is the winning strategy with a max strength == 4  '''
+        signal = '1111100011111100'
+        self.l1._match_arr_strat2(signal)
+        self.assertEqual(self.l1._current_arr_strat, '1222102221222222')
+        self.assertTrue(all([(self.l1._current_arr_strat[x] == signal[x] or self.l1._current_arr_strat[x] == '2') for x in range(self.l1._arr_len)]))
+        self.assertEqual(sum([self.l1._current_arr_strat[x] == signal[x] for x in range(self.l1._arr_len)]), 4)
     
     def test_match_ask_strat(self):
-        pass
+        ''' With seeds == 39, '22012' is the winning strategy with a max strength == 2  '''
+        signal = '01010'
+        self.l1._match_ask_strat(signal)
+        self.assertEqual(self.l1._current_ask_strat[0], '22012')
+        self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
+        self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
     
     def test_match_bid_strat(self):
-        pass
+        ''' With seeds == 39, there are 4 winning strategies with a max strength == 2: 22020, 02022, 22210, 02212 '''
+        signal = '01010'
+        self.l1._match_bid_strat(signal)
+        for j in ['22020', '02022', '22210', '02212']:
+            self.assertTrue(j in self.l1._current_bid_strat)
+        for i in self.l1._current_bid_strat:
+            with self.subTest(i=i):
+                self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._bid_len)]))
+                self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._bid_len)]), 2)
     
     ''' Accuracy/Profitability Update Tests '''
     def test_update_oi_acc(self):
