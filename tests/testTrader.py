@@ -246,11 +246,7 @@ class TestTrader(unittest.TestCase):
         
         
 # MarketMakerL tests
-        
-    def test_match_oi_strat_MML(self):
-        #oi_state is 24 bits
-        signal = '011111000000011111000000'
-        print(self.l1._match_oi_strat2(signal))
+
     @unittest.skip('For now')
     def test_match_strategy_MML(self):
         #arr_state is 16 bits
