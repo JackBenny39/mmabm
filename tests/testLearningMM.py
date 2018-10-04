@@ -118,6 +118,42 @@ class TestTrader(unittest.TestCase):
         #print(self.l1._askadj_strat, self.l1._ask_len, len(self.l1._askadj_strat))
         #print(self.l1._bidadj_strat, self.l1._bid_len, len(self.l1._bidadj_strat))
         
+    @unittest.skip('Takes too long to run every time')
+    def test_make_oi_strat(self):
+        ''' Test for proper conversion from bitstring to integer '''
+        for i in self.l1._oi_strat.keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._oi_strat[i]['action'][1:], 2), abs(self.l1._oi_strat[i]['strategy']))
+                if self.l1._oi_strat[i]['strategy'] != 0:
+                    self.assertEqual(int(self.l1._oi_strat[i]['action'][0]), self.l1._oi_strat[i]['strategy']>0)
+                self.assertEqual(self.l1._oi_strat[i]['accuracy'], [0, 0, 0])
+                
+    @unittest.skip('Takes too long to run every time')      
+    def test_make_arr_strat(self):
+        ''' Test for proper conversion from bitstring to integer '''
+        for i in self.l1._arr_strat.keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._arr_strat[i]['action'], 2), self.l1._arr_strat[i]['strategy'])
+                self.assertEqual(self.l1._arr_strat[i]['accuracy'], [0, 0, 0])
+                
+    @unittest.skip('Takes too long to run every time')        
+    def test_make_bidask_strat(self):
+        ''' Test for proper conversion from bitstring to integer '''
+        #ask strategy
+        for i in self.l1._askadj_strat.keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._askadj_strat[i]['action'][1:], 2), abs(self.l1._askadj_strat[i]['strategy']))
+                if self.l1._askadj_strat[i]['strategy'] != 0:
+                    self.assertEqual(int(self.l1._askadj_strat[i]['action'][0]), self.l1._askadj_strat[i]['strategy']>0)
+                self.assertEqual(self.l1._askadj_strat[i]['profitability'], [0, 0, 0])
+        #bid strategy        
+        for i in self.l1._bidadj_strat.keys():
+            with self.subTest(i=i):
+                self.assertEqual(int(self.l1._bidadj_strat[i]['action'][1:], 2), abs(self.l1._bidadj_strat[i]['strategy']))
+                if self.l1._bidadj_strat[i]['strategy'] != 0:
+                    self.assertEqual(int(self.l1._bidadj_strat[i]['action'][0]), self.l1._bidadj_strat[i]['strategy']>0)
+                self.assertEqual(self.l1._bidadj_strat[i]['profitability'], [0, 0, 0])
+        
     ''' Strategy Matching Tests '''
     def test_match_oi_strat2(self):
         pass
