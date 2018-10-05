@@ -222,7 +222,8 @@ class MarketMakerL():
         self._cash_flow = 0
         self.cash_flow_collector = []
         
-        self._last_prices = []
+        self._last_buy_prices = []
+        self._last_sell_prices = []
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
@@ -347,26 +348,26 @@ class MarketMakerL():
         self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._arr_strat[self._current_arr_strat]['accuracy'][1]
         
     def _update_profits(self, mid):
-        if self._last_prices:
-            n_trades = len(self._last_prices)
-            profit = sum([abs(x - mid) for x in self._last_prices])
+        if self._last_sell_prices:
             for strat in self._current_ask_strat: # sub out references
-                self._askadj_strat[strat]['profitability'][0] += profit
-                self._askadj_strat[strat]['profitability'][1] += n_trades
+                self._askadj_strat[strat]['profitability'][0] += sum([x - mid for x in self._last_sell_prices])
+                self._askadj_strat[strat]['profitability'][1] += len(self._last_sell_prices)
                 self._askadj_strat[strat]['profitability'][-1] = self._askadj_strat[strat]['profitability'][0]/self._askadj_strat[strat]['profitability'][1]
+        if self._last_buy_prices:
             for strat in self._current_bid_strat: # sub out references
-                self._bidadj_strat[strat]['profitability'][0] += profit
-                self._bidadj_strat[strat]['profitability'][1] += n_trades
+                self._bidadj_strat[strat]['profitability'][0] += sum([mid - x for x in self._last_buy_prices])
+                self._bidadj_strat[strat]['profitability'][1] += len(self._last_buy_prices)
                 self._bidadj_strat[strat]['profitability'][-1] = self._bidadj_strat[strat]['profitability'][0]/self._bidadj_strat[strat]['profitability'][1]
     
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
         '''Modify _cash_flow and _delta_inv; update the local_book'''
-        self._last_prices.append(confirm['price'])
         if confirm['side'] == Side.BID:
+            self._last_buy_prices.append(confirm['price'])
             self._cash_flow -= confirm['price']*confirm['quantity']
             self._delta_inv += confirm['quantity']
         else:
+            self._last_sell_prices.append(confirm['price'])
             self._cash_flow += confirm['price']*confirm['quantity']
             self._delta_inv -= confirm['quantity']
         self._modify_order(confirm['side'], confirm['quantity'], confirm['order_id'], confirm['price'])
@@ -566,7 +567,8 @@ class MarketMakerL():
         self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
                                          'delta_inv': self._delta_inv})
         self._delta_inv = 0
-        self._last_prices.clear()
+        self._last_buy_prices.clear()
+        self._last_sell_prices.clear()
         
 
 class PennyJumper(ZITrader):

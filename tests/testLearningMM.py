@@ -274,19 +274,16 @@ class TestTrader(unittest.TestCase):
         self.l1._bidadj_strat['02022']['profitability'][-1] = 10
         self.l1._current_bid_strat = ['02022']
         mid = 1000
-        self.l1._last_prices = [998, 999, 1001, 1002]
+        self.l1._last_buy_prices = [998, 999]
+        self.l1._last_sell_prices = [1001, 1002]
         self.l1._update_profits(mid)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][0], 10006)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][1], 1004)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][-1], 10006/1004)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][0], 10006)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][1], 1004)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][-1], 10006/1004)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][0], 10003)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][1], 1002)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][-1], 10003/1002)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][0], 10003)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][1], 1002)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][-1], 10003/1002)
     
-    ''' Trade Handling Tests '''
-    def test_confirm_trade_local(self):
-        pass 
-     
     ''' Order Construction Tests '''    
     def test_make_add_quote(self):
         ''' Takes 4 inputs, increments the quote sequence and generates a dict '''
@@ -316,6 +313,11 @@ class TestTrader(unittest.TestCase):
     
     def test_modify_order(self):
         pass
+    
+    ''' Trade Handling Tests '''
+    def test_confirm_trade_local(self):
+        pass 
+     
     
     ''' Orderbook Update Tests '''    
     def test_update_midpoint(self):

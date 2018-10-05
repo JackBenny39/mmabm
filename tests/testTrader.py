@@ -243,25 +243,7 @@ class TestTrader(unittest.TestCase):
         self.p1._delta = 0.1
         self.p1.bulk_cancel(12)
         self.assertFalse(self.p1.cancel_collector)
-        
-        
-# MarketMakerL tests
 
-    @unittest.skip('For now')
-    def test_match_strategy_MML(self):
-        #arr_state is 16 bits
-        signal0 = '1111100011111100'
-        print(self.l1._match_strategy(0, signal0))
-        #oi_state is 24 bits
-        signal1 = '011111000000011111000000'
-        print(self.l1._match_strategy(1, signal1))
-        signal2 = '01010'
-        print(self.l1._match_strategy(2, signal2))
-        signal3 = '00010'
-        print(self.l1._match_strategy(3, signal3))
-        #self.assertDictEqual(self.l1._match_strategies(signal), {'0222022': 2, '2002222': 2, '0202222': 2, '2201222': 2})
-   
-        
 # MarketMaker tests
    
     def test_repr_MarketMaker(self):
