@@ -291,7 +291,7 @@ class MarketMakerL():
                         max_accuracy = self._arr_strat[cond]['accuracy'][-1]
                     elif self._arr_strat[cond]['accuracy'][-1] == max_accuracy:
                         temp_strats.append(cond)         
-        self._current_arr_strat = temp_strats[random.randrange(len(temp_strats))]
+        self._current_arr_strat = random.choice(temp_strats)
                 
     def _match_ask_strat(self, arrivals):
         '''Returns all strategies with the maximum accuracy'''
