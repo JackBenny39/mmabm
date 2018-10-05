@@ -163,6 +163,19 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._current_oi_strat[0], '221212222222222222020222')
         self.assertTrue(all([(self.l1._current_oi_strat[0][x] == signal[x] or self.l1._current_oi_strat[0][x] == '2') for x in range(self.l1._oi_len)]))
         self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
+        # Another winner with strength == 4 could be '212212222222222222020222'
+        self.l1._oi_strat['212212222222222222020222'] = {'action': 'xxxxx', 'strategy': 999, 'accuracy': [0, 0, 1]}
+        # Set '221212222222222222020222' accuracy to greater than new strat accuracy
+        self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 2
+        self.l1._match_oi_strat2(signal)
+        self.assertEqual(self.l1._current_oi_strat[0], '212212222222222222020222')
+        self.assertTrue(all([(self.l1._current_oi_strat[0][x] == signal[x] or self.l1._current_oi_strat[0][x] == '2') for x in range(self.l1._oi_len)]))
+        self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
+        # If they had the same strength and accuracy, both would be returned
+        self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 1
+        self.l1._match_oi_strat2(signal)
+        for j in ['212212222222222222020222', '221212222222222222020222']:
+            self.assertTrue(j in self.l1._current_oi_strat)
         
     def test_match_arr_strat2(self):
         ''' With seeds == 39, '1222102221222222' is the winning strategy with a max strength == 4  '''
@@ -171,6 +184,19 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._current_arr_strat, '1222102221222222')
         self.assertTrue(all([(self.l1._current_arr_strat[x] == signal[x] or self.l1._current_arr_strat[x] == '2') for x in range(self.l1._arr_len)]))
         self.assertEqual(sum([self.l1._current_arr_strat[x] == signal[x] for x in range(self.l1._arr_len)]), 4)
+        # Another winner with strength == 4 could be '2122102221222222'
+        self.l1._arr_strat['2122102221222222'] = {'action': 'xxxxx', 'strategy': 999, 'accuracy': [0, 0, 1]}
+        # Set '1222102221222222' accuracy to greater than new strat accuracy
+        self.l1._arr_strat['1222102221222222']['accuracy'][-1] = 2
+        self.l1._match_arr_strat2(signal)
+        self.assertEqual(self.l1._current_arr_strat, '2122102221222222')
+        self.assertTrue(all([(self.l1._current_arr_strat[x] == signal[x] or self.l1._current_arr_strat[x] == '2') for x in range(self.l1._arr_len)]))
+        self.assertEqual(sum([self.l1._current_arr_strat[x] == signal[x] for x in range(self.l1._arr_len)]), 4)
+        # If they had the same strength and accuracy, only one would be returned
+        self.l1._arr_strat['1222102221222222']['accuracy'][-1] = 1
+        self.l1._match_arr_strat2(signal)
+        self.assertTrue('2122102221222222' in self.l1._current_arr_strat)
+        self.assertFalse('1222102221222222' in self.l1._current_arr_strat)
     
     def test_match_ask_strat(self):
         ''' With seeds == 39, '22012' is the winning strategy with a max strength == 2  '''
@@ -179,6 +205,21 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._current_ask_strat[0], '22012')
         self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
         self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
+        # Another winner could be '01222' - set profitability higher
+        self.l1._askadj_strat['01222'] = {'action': 'xxxxx', 'strategy': 999, 'profitability': [0, 0, 1]}
+        self.l1._match_ask_strat(signal)
+        self.assertEqual(self.l1._current_ask_strat[0], '01222')
+        self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
+        self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
+        # Set previous winner profitability to 1
+        self.l1._askadj_strat['22012']['profitability'][-1] = 1
+        self.l1._match_ask_strat(signal)
+        for j in ['01222', '22012']:
+            self.assertTrue(j in self.l1._current_ask_strat)
+        for i in self.l1._current_ask_strat:
+            with self.subTest(i=i):
+                self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._ask_len)]))
+                self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._ask_len)]), 2)
     
     def test_match_bid_strat(self):
         ''' With seeds == 39, there are 4 winning strategies with a max strength == 2: 22020, 02022, 22210, 02212 '''
@@ -190,6 +231,13 @@ class TestTrader(unittest.TestCase):
             with self.subTest(i=i):
                 self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._bid_len)]))
                 self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._bid_len)]), 2)
+        # Set one of the winner profitability higher
+        self.l1._bidadj_strat['02022']['profitability'][-1] = 1
+        self.l1._match_bid_strat(signal)
+        self.assertEqual(len(self.l1._current_bid_strat), 1)
+        self.assertEqual(self.l1._current_bid_strat[0], '02022')
+        self.assertTrue(all([(self.l1._current_bid_strat[0][x] == signal[x] or self.l1._current_bid_strat[0][x] == '2') for x in range(self.l1._bid_len)]))
+        self.assertEqual(sum([self.l1._current_bid_strat[0][x] == signal[x] for x in range(self.l1._bid_len)]), 2)
     
     ''' Accuracy/Profitability Update Tests '''
     def test_update_oi_acc(self):
