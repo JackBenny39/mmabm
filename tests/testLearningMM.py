@@ -162,14 +162,14 @@ class TestTrader(unittest.TestCase):
                 self.assertEqual(int(self.l1._askadj_strat[i]['action'][1:], 2), abs(self.l1._askadj_strat[i]['strategy']))
                 if self.l1._askadj_strat[i]['strategy'] != 0:
                     self.assertEqual(int(self.l1._askadj_strat[i]['action'][0]), self.l1._askadj_strat[i]['strategy']>0)
-                self.assertEqual(self.l1._askadj_strat[i]['profitability'], [0, 0, 0])
+                self.assertEqual(self.l1._askadj_strat[i]['rr_spread'], [0, 0, 0])
         #bid strategy        
         for i in self.l1._bidadj_strat.keys():
             with self.subTest(i=i):
                 self.assertEqual(int(self.l1._bidadj_strat[i]['action'][1:], 2), abs(self.l1._bidadj_strat[i]['strategy']))
                 if self.l1._bidadj_strat[i]['strategy'] != 0:
                     self.assertEqual(int(self.l1._bidadj_strat[i]['action'][0]), self.l1._bidadj_strat[i]['strategy']>0)
-                self.assertEqual(self.l1._bidadj_strat[i]['profitability'], [0, 0, 0])
+                self.assertEqual(self.l1._bidadj_strat[i]['rr_spread'], [0, 0, 0])
         
     ''' Strategy Matching Tests '''
     def test_match_oi_strat2(self):
@@ -222,14 +222,14 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._current_ask_strat[0], '22012')
         self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
         self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
-        # Another winner could be '01222' - set profitability higher
-        self.l1._askadj_strat['01222'] = {'action': 'xxxxx', 'strategy': 999, 'profitability': [0, 0, 1]}
+        # Another winner could be '01222' - set rr_spread higher
+        self.l1._askadj_strat['01222'] = {'action': 'xxxxx', 'strategy': 999, 'rr_spread': [0, 0, 1]}
         self.l1._match_ask_strat(signal)
         self.assertEqual(self.l1._current_ask_strat[0], '01222')
         self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
         self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
-        # Set previous winner profitability to 1
-        self.l1._askadj_strat['22012']['profitability'][-1] = 1
+        # Set previous winner rr_spread to 1
+        self.l1._askadj_strat['22012']['rr_spread'][-1] = 1
         self.l1._match_ask_strat(signal)
         for j in ['01222', '22012']:
             self.assertTrue(j in self.l1._current_ask_strat)
@@ -248,8 +248,8 @@ class TestTrader(unittest.TestCase):
             with self.subTest(i=i):
                 self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._bid_len)]))
                 self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._bid_len)]), 2)
-        # Set one of the winner profitability higher
-        self.l1._bidadj_strat['02022']['profitability'][-1] = 1
+        # Set one of the winner rr_spread higher
+        self.l1._bidadj_strat['02022']['rr_spread'][-1] = 1
         self.l1._match_bid_strat(signal)
         self.assertEqual(len(self.l1._current_bid_strat), 1)
         self.assertEqual(self.l1._current_bid_strat[0], '02022')
@@ -278,20 +278,20 @@ class TestTrader(unittest.TestCase):
         self.assertListEqual(self.l1._arr_strat['1222102221222222']['accuracy'], [12, 11, 12/11])
     
     def test_update_profits(self):
-        self.l1._askadj_strat['22012']['profitability'][0] = 10000
-        self.l1._askadj_strat['22012']['profitability'][1] = 1000
-        self.l1._askadj_strat['22012']['profitability'][-1] = 10
+        self.l1._askadj_strat['22012']['rr_spread'][0] = 10000
+        self.l1._askadj_strat['22012']['rr_spread'][1] = 1000
+        self.l1._askadj_strat['22012']['rr_spread'][-1] = 10
         self.l1._current_ask_strat = ['22012']
-        self.l1._bidadj_strat['02022']['profitability'][0] = 10000
-        self.l1._bidadj_strat['02022']['profitability'][1] = 1000
-        self.l1._bidadj_strat['02022']['profitability'][-1] = 10
+        self.l1._bidadj_strat['02022']['rr_spread'][0] = 10000
+        self.l1._bidadj_strat['02022']['rr_spread'][1] = 1000
+        self.l1._bidadj_strat['02022']['rr_spread'][-1] = 10
         self.l1._current_bid_strat = ['02022']
         mid = 1000
         self.l1._last_buy_prices = [998, 999]
         self.l1._last_sell_prices = [1001, 1002]
         self.l1._update_profits(mid)
-        self.assertListEqual(self.l1._askadj_strat['22012']['profitability'], [10003, 1002, 10003/1002])
-        self.assertListEqual(self.l1._bidadj_strat['02022']['profitability'], [10003, 1002, 10003/1002])
+        self.assertListEqual(self.l1._askadj_strat['22012']['rr_spread'], [10003, 1002, 10003/1002])
+        self.assertListEqual(self.l1._bidadj_strat['02022']['rr_spread'], [10003, 1002, 10003/1002])
     
     ''' Order Construction Tests '''    
     def test_make_add_quote(self):
@@ -460,9 +460,45 @@ class TestTrader(unittest.TestCase):
     
     ''' Trade Handling Tests '''
     def test_confirm_trade_local(self):
-        pass 
-     
-    
+        # _cash_flow and _delta_inv start at 0, _last_buy_prices and last_sell_prices are empty
+        self.assertFalse(self.l1._last_buy_prices)
+        self.assertFalse(self.l1._last_sell_prices)
+        self.assertEqual(self.l1._cash_flow, 0)
+        self.assertEqual(self.l1._delta_inv, 0)
+        # add some orders
+        q1 = {'order_id': 1, 'timestamp': 5, 'type': OType.ADD, 'quantity': 5, 'side': Side.BID, 'price': 995}
+        q2 = {'order_id': 2, 'timestamp': 5, 'type': OType.ADD, 'quantity': 5, 'side': Side.ASK, 'price': 1005}
+        self.l1._add_order(q1)
+        self.l1._add_order(q2)
+        # Market maker buys
+        confirm1 = {'timestamp': 20, 'trader': 3001, 'order_id': 1, 'quantity': 1, 'side': Side.BID, 'price': 995}
+        self.l1.confirm_trade_local(confirm1)
+        self.assertListEqual(self.l1._last_buy_prices, [995])
+        self.assertEqual(self.l1._cash_flow, -995)
+        self.assertEqual(self.l1._delta_inv, 1)
+        self.assertEqual(self.l1._bid_book[995]['num_orders'], 1)
+        self.assertEqual(self.l1._bid_book[995]['size'], 4)
+        confirm2 = {'timestamp': 22, 'trader': 3001, 'order_id': 1, 'quantity': 4, 'side': Side.BID, 'price': 995}
+        self.l1.confirm_trade_local(confirm2)
+        self.assertListEqual(self.l1._last_buy_prices, [995, 995])
+        self.assertEqual(self.l1._cash_flow, -4975)
+        self.assertEqual(self.l1._delta_inv, 5)
+        self.assertFalse(self.l1._bid_book_prices)
+        # Market maker sells
+        confirm3 = {'timestamp': 20, 'trader': 3001, 'order_id': 2, 'quantity': 1, 'side': Side.ASK, 'price': 1005}
+        self.l1.confirm_trade_local(confirm3)
+        self.assertListEqual(self.l1._last_sell_prices, [1005])
+        self.assertEqual(self.l1._cash_flow, -3970)
+        self.assertEqual(self.l1._delta_inv, 4)
+        self.assertEqual(self.l1._ask_book[1005]['num_orders'], 1)
+        self.assertEqual(self.l1._ask_book[1005]['size'], 4)
+        confirm4 = {'timestamp': 22, 'trader': 3001, 'order_id': 2, 'quantity': 4, 'side': Side.ASK, 'price': 1005}
+        self.l1.confirm_trade_local(confirm4)
+        self.assertListEqual(self.l1._last_sell_prices, [1005, 1005])
+        self.assertEqual(self.l1._cash_flow, 50)
+        self.assertEqual(self.l1._delta_inv, 0)
+        self.assertFalse(self.l1._ask_book_prices)
+
     ''' Orderbook Update Tests '''    
     def test_update_midpoint(self):
         pass

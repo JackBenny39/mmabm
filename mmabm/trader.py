@@ -246,7 +246,7 @@ class MarketMakerL():
         return arr_strat, len(list(arr_chroms.keys())[0])
     
     def _make_bidask_strat2(self, ba_chroms):
-        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'profitability': [0, 0, 0]} for k, v in ba_chroms.items()}
+        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'rr_spread': [0, 0, 0]} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
 
     ''' New Matching '''
@@ -305,13 +305,13 @@ class MarketMakerL():
                     self._current_ask_strat.clear()
                     self._current_ask_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._askadj_strat[cond]['profitability'][-1]
+                    max_profits = self._askadj_strat[cond]['rr_spread'][-1]
                 elif strength == max_strength:
-                    if self._askadj_strat[cond]['profitability'][-1] > max_profits:
+                    if self._askadj_strat[cond]['rr_spread'][-1] > max_profits:
                         self._current_ask_strat.clear()
                         self._current_ask_strat.append(cond)
-                        max_profits = self._askadj_strat[cond]['profitability'][-1]
-                    elif self._askadj_strat[cond]['profitability'][-1] == max_profits:
+                        max_profits = self._askadj_strat[cond]['rr_spread'][-1]
+                    elif self._askadj_strat[cond]['rr_spread'][-1] == max_profits:
                         self._current_ask_strat.append(cond)         
     
     def _match_bid_strat(self, arrivals):
@@ -326,16 +326,16 @@ class MarketMakerL():
                     self._current_bid_strat.clear()
                     self._current_bid_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._bidadj_strat[cond]['profitability'][-1]
+                    max_profits = self._bidadj_strat[cond]['rr_spread'][-1]
                 elif strength == max_strength:
-                    if self._bidadj_strat[cond]['profitability'][-1] > max_profits:
+                    if self._bidadj_strat[cond]['rr_spread'][-1] > max_profits:
                         self._current_bid_strat.clear()
                         self._current_bid_strat.append(cond)
-                        max_profits = self._bidadj_strat[cond]['profitability'][-1]
-                    elif self._bidadj_strat[cond]['profitability'][-1] == max_profits:
+                        max_profits = self._bidadj_strat[cond]['rr_spread'][-1]
+                    elif self._bidadj_strat[cond]['rr_spread'][-1] == max_profits:
                         self._current_bid_strat.append(cond)
 
-    ''' Update accuracy/profitability forecast '''                    
+    ''' Update accuracy/rr_spread forecast '''                    
     def _update_oi_acc(self, actual):
         for strat in self._current_oi_strat: #sub out references
             self._oi_strat[strat]['accuracy'][0] += abs(actual - self._oi_strat[strat]['strategy'])
@@ -347,17 +347,17 @@ class MarketMakerL():
         self._arr_strat[self._current_arr_strat]['accuracy'][1] += 1
         self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._arr_strat[self._current_arr_strat]['accuracy'][1]
         
-    def _update_profits(self, mid):
+    def _update_profits(self, mid): # Using realized spread in ticks - maybe use relative realized spread?
         if self._last_sell_prices:
             for strat in self._current_ask_strat: # sub out references
-                self._askadj_strat[strat]['profitability'][0] += sum([x - mid for x in self._last_sell_prices])
-                self._askadj_strat[strat]['profitability'][1] += len(self._last_sell_prices)
-                self._askadj_strat[strat]['profitability'][-1] = self._askadj_strat[strat]['profitability'][0]/self._askadj_strat[strat]['profitability'][1]
+                self._askadj_strat[strat]['rr_spread'][0] += sum([x - mid for x in self._last_sell_prices])
+                self._askadj_strat[strat]['rr_spread'][1] += len(self._last_sell_prices)
+                self._askadj_strat[strat]['rr_spread'][-1] = self._askadj_strat[strat]['rr_spread'][0]/self._askadj_strat[strat]['rr_spread'][1]
         if self._last_buy_prices:
             for strat in self._current_bid_strat: # sub out references
-                self._bidadj_strat[strat]['profitability'][0] += sum([mid - x for x in self._last_buy_prices])
-                self._bidadj_strat[strat]['profitability'][1] += len(self._last_buy_prices)
-                self._bidadj_strat[strat]['profitability'][-1] = self._bidadj_strat[strat]['profitability'][0]/self._bidadj_strat[strat]['profitability'][1]
+                self._bidadj_strat[strat]['rr_spread'][0] += sum([mid - x for x in self._last_buy_prices])
+                self._bidadj_strat[strat]['rr_spread'][1] += len(self._last_buy_prices)
+                self._bidadj_strat[strat]['rr_spread'][-1] = self._bidadj_strat[strat]['rr_spread'][0]/self._bidadj_strat[strat]['rr_spread'][1]
     
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
