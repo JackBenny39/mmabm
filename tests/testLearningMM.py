@@ -265,7 +265,23 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][-1], 12/11)
     
     def test_update_profits(self):
-        pass
+        self.l1._askadj_strat['22012']['profitability'][0] = 10000
+        self.l1._askadj_strat['22012']['profitability'][1] = 1000
+        self.l1._askadj_strat['22012']['profitability'][-1] = 10
+        self.l1._current_ask_strat = ['22012']
+        self.l1._bidadj_strat['02022']['profitability'][0] = 10000
+        self.l1._bidadj_strat['02022']['profitability'][1] = 1000
+        self.l1._bidadj_strat['02022']['profitability'][-1] = 10
+        self.l1._current_bid_strat = ['02022']
+        mid = 1000
+        self.l1._last_prices = [998, 999, 1001, 1002]
+        self.l1._update_profits(mid)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][0], 10006)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][1], 1004)
+        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][-1], 10006/1004)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][0], 10006)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][1], 1004)
+        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][-1], 10006/1004)
     
     ''' Trade Handling Tests '''
     def test_confirm_trade_local(self):
