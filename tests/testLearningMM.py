@@ -110,7 +110,8 @@ class TestTrader(unittest.TestCase):
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), askp_adj_n))
             askp_genes.update({gk: gv})
         maxq = 5
-        a = b = c = 1
+        a = b = 1
+        c = -1
         return MarketMakerL(tid, maxq, a, b, c, genes)
     
     ''' Strategy Construction Tests '''    
@@ -501,7 +502,14 @@ class TestTrader(unittest.TestCase):
 
     ''' Orderbook Update Tests '''    
     def test_update_midpoint(self):
-        pass
+        ''' With seeds == 39, '221212222222222222020222' is the sole winning strategy with a max strength == 4 -> action == -3 '''
+        self.l1._mid = 1000
+        self.l1._delta_inv = 3
+        #oi_state is 24 bits
+        signal = '011111000000011111000000'
+        self.l1._update_midpoint(signal)
+        # new mid = old mid - 3 + (-1*3)
+        self.assertEqual(self.l1._mid, 994)
     
     def test_make_spread(self):
         pass
