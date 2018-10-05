@@ -248,9 +248,7 @@ class TestTrader(unittest.TestCase):
         self.l1._current_oi_strat = ['221212222222222222020222']
         actual = 6
         self.l1._update_oi_acc(actual)
-        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][0], 12)
-        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][1], 11)
-        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][-1], 12/11)
+        self.assertListEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'], [12, 11, 12/11])
     
     def test_update_arr_acc(self):
         self.l1._arr_strat['1222102221222222']['accuracy'][0] = 10
@@ -260,9 +258,7 @@ class TestTrader(unittest.TestCase):
         self.l1._current_arr_strat = '1222102221222222'
         actual = 6
         self.l1._update_arr_acc(actual)
-        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][0], 12)
-        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][1], 11)
-        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][-1], 12/11)
+        self.assertListEqual(self.l1._arr_strat['1222102221222222']['accuracy'], [12, 11, 12/11])
     
     def test_update_profits(self):
         self.l1._askadj_strat['22012']['profitability'][0] = 10000
@@ -277,12 +273,8 @@ class TestTrader(unittest.TestCase):
         self.l1._last_buy_prices = [998, 999]
         self.l1._last_sell_prices = [1001, 1002]
         self.l1._update_profits(mid)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][0], 10003)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][1], 1002)
-        self.assertEqual(self.l1._askadj_strat['22012']['profitability'][-1], 10003/1002)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][0], 10003)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][1], 1002)
-        self.assertEqual(self.l1._bidadj_strat['02022']['profitability'][-1], 10003/1002)
+        self.assertListEqual(self.l1._askadj_strat['22012']['profitability'], [10003, 1002, 10003/1002])
+        self.assertListEqual(self.l1._bidadj_strat['02022']['profitability'], [10003, 1002, 10003/1002])
     
     ''' Order Construction Tests '''    
     def test_make_add_quote(self):
