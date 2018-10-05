@@ -16,6 +16,23 @@ class TestTrader(unittest.TestCase):
         self.q1 = {'order_id': 1, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 125}
         
+        self.q1_buy = {'order_id': 1,'timestamp': 2, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
+                       'price': 50}
+        self.q2_buy = {'order_id': 2, 'timestamp': 3, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
+                       'price': 50}
+        self.q3_buy = {'order_id': 1, 'timestamp': 4, 'type': OType.ADD, 'quantity': 3, 'side': Side.BID,
+                       'price': 49}
+        self.q4_buy = {'order_id': 1, 'timestamp': 5, 'type': OType.ADD, 'quantity': 3, 'side': Side.BID,
+                       'price': 47}
+        self.q1_sell = {'order_id': 3, 'timestamp': 2, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
+                        'price': 52}
+        self.q2_sell = {'order_id': 4, 'timestamp': 3, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
+                        'price': 52}
+        self.q3_sell = {'order_id': 2, 'timestamp': 4, 'type': OType.ADD, 'quantity': 3, 'side': Side.ASK,
+                        'price': 53}
+        self.q4_sell = {'order_id': 2, 'timestamp': 5, 'type': OType.ADD, 'quantity': 3, 'side': Side.ASK,
+                        'price': 55}
+        
     def _makeMML(self, tid):
         '''
         Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
@@ -298,13 +315,148 @@ class TestTrader(unittest.TestCase):
         
     ''' Orderbook Bookkeeping Tests'''
     def test_add_order(self):
-        pass
+        '''
+        add_order_to_book() impacts _bid_book and _bid_book_prices or _ask_book and _ask_book_prices
+        Add two buy orders, then two sell orders
+        '''
+        # 2 buy orders
+        self.assertFalse(self.l1._bid_book_prices)
+        self.assertFalse(self.l1._bid_book)
+        self.l1._add_order(self.q1_buy)
+        self.assertTrue(50 in self.l1._bid_book_prices)
+        self.assertTrue(50 in self.l1._bid_book.keys())
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 1)
+        self.assertEqual(self.l1._bid_book[50]['size'], 1)
+        self.assertEqual(self.l1._bid_book[50]['order_ids'][0], 1)
+        del self.q1_buy['type']
+        self.assertDictEqual(self.l1._bid_book[50]['orders'][1], self.q1_buy)
+        self.l1._add_order(self.q2_buy)
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 2)
+        self.assertEqual(self.l1._bid_book[50]['size'], 2)
+        self.assertEqual(self.l1._bid_book[50]['order_ids'][1], 2)
+        del self.q2_buy['type']
+        self.assertDictEqual(self.l1._bid_book[50]['orders'][2], self.q2_buy)
+        # 2 sell orders
+        self.assertFalse(self.l1._ask_book_prices)
+        self.assertFalse(self.l1._ask_book)
+        self.l1._add_order(self.q1_sell)
+        self.assertTrue(52 in self.l1._ask_book_prices)
+        self.assertTrue(52 in self.l1._ask_book.keys())
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 1)
+        self.assertEqual(self.l1._ask_book[52]['size'], 1)
+        self.assertEqual(self.l1._ask_book[52]['order_ids'][0], 3)
+        del self.q1_sell['type']
+        self.assertDictEqual(self.l1._ask_book[52]['orders'][3], self.q1_sell)
+        self.l1._add_order(self.q2_sell)
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 2)
+        self.assertEqual(self.l1._ask_book[52]['size'], 2)
+        self.assertEqual(self.l1._ask_book[52]['order_ids'][1], 4)
+        del self.q2_sell['type']
+        self.assertDictEqual(self.l1._ask_book[52]['orders'][4], self.q2_sell)
     
     def test_remove_order(self):
-        pass
+        '''
+        _remove_order() impacts _bid_book and _bid_book_prices or _ask_book and _ask_book_prices
+        Add two  orders, remove the second order twice
+        '''
+        # buy orders
+        self.l1._add_order(self.q1_buy)
+        self.l1._add_order(self.q2_buy)
+        self.assertTrue(50 in self.l1._bid_book_prices)
+        self.assertTrue(50 in self.l1._bid_book.keys())
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 2)
+        self.assertEqual(self.l1._bid_book[50]['size'], 2)
+        self.assertEqual(len(self.l1._bid_book[50]['order_ids']), 2)
+        # remove first order
+        self.l1._remove_order(Side.BID, 50, 1)
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 1)
+        self.assertEqual(self.l1._bid_book[50]['size'], 1)
+        self.assertEqual(len(self.l1._bid_book[50]['order_ids']), 1)
+        self.assertFalse(1 in self.l1._bid_book[50]['orders'].keys())
+        self.assertTrue(50 in self.l1._bid_book_prices)
+        # remove second order
+        self.l1._remove_order(Side.BID, 50, 2)
+        self.assertFalse(self.l1._bid_book_prices)
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 0)
+        self.assertEqual(self.l1._bid_book[50]['size'], 0)
+        self.assertEqual(len(self.l1._bid_book[50]['order_ids']), 0)
+        self.assertFalse(2 in self.l1._bid_book[50]['orders'].keys())
+        self.assertFalse(50 in self.l1._bid_book_prices)
+        # remove second order again
+        self.l1._remove_order(Side.BID, 50, 2)
+        self.assertFalse(self.l1._bid_book_prices)
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 0)
+        self.assertEqual(self.l1._bid_book[50]['size'], 0)
+        self.assertEqual(len(self.l1._bid_book[50]['order_ids']), 0)
+        self.assertFalse(2 in self.l1._bid_book[50]['orders'].keys())
+        # sell orders
+        self.l1._add_order(self.q1_sell)
+        self.l1._add_order(self.q2_sell)
+        self.assertTrue(52 in self.l1._ask_book_prices)
+        self.assertTrue(52 in self.l1._ask_book.keys())
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 2)
+        self.assertEqual(self.l1._ask_book[52]['size'], 2)
+        self.assertEqual(len(self.l1._ask_book[52]['order_ids']), 2)
+        # remove first order
+        self.l1._remove_order(Side.ASK, 52, 3)
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 1)
+        self.assertEqual(self.l1._ask_book[52]['size'], 1)
+        self.assertEqual(len(self.l1._ask_book[52]['order_ids']), 1)
+        self.assertFalse(3 in self.l1._ask_book[52]['orders'].keys())
+        self.assertTrue(52 in self.l1._ask_book_prices)
+        # remove second order
+        self.l1._remove_order(Side.ASK, 52, 4)
+        self.assertFalse(self.l1._ask_book_prices)
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 0)
+        self.assertEqual(self.l1._ask_book[52]['size'], 0)
+        self.assertEqual(len(self.l1._ask_book[52]['order_ids']), 0)
+        self.assertFalse(4 in self.l1._ask_book[52]['orders'].keys())
+        self.assertFalse(52 in self.l1._ask_book_prices)
+        # remove second order again
+        self.l1._remove_order(Side.ASK, 52, 4)
+        self.assertFalse(self.l1._ask_book_prices)
+        self.assertEqual(self.l1._ask_book[52]['num_orders'], 0)
+        self.assertEqual(self.l1._ask_book[52]['size'], 0)
+        self.assertEqual(len(self.l1._ask_book[52]['order_ids']), 0)
+        self.assertFalse(4 in self.l1._ask_book[52]['orders'].keys())
     
     def test_modify_order(self):
-        pass
+        '''
+        _modify_order() primarily impacts _bid_book or _ask_book 
+        _modify_order() could impact _bid_book_prices or _ask_book_prices if the order results 
+        in removing the full quantity with a call to _remove_order() 
+        Add 1 order, remove partial, then remainder
+        '''
+        # Buy order
+        q1 = {'order_id': 1, 'timestamp': 5, 'type': OType.ADD, 'quantity': 2, 'side': Side.BID, 'price': 50}
+        self.l1._add_order(q1)
+        self.assertEqual(self.l1._bid_book[50]['size'], 2)
+        # remove 1
+        self.l1._modify_order(Side.BID, 1, 1, 50)
+        self.assertEqual(self.l1._bid_book[50]['size'], 1)
+        self.assertEqual(self.l1._bid_book[50]['orders'][1]['quantity'], 1)
+        self.assertTrue(self.l1._bid_book_prices)
+        # remove remainder
+        self.l1._modify_order(Side.BID, 1, 1, 50)
+        self.assertFalse(self.l1._bid_book_prices)
+        self.assertEqual(self.l1._bid_book[50]['num_orders'], 0)
+        self.assertEqual(self.l1._bid_book[50]['size'], 0)
+        self.assertFalse(1 in self.l1._bid_book[50]['orders'].keys())
+        # Sell order
+        q2 = {'order_id': 2, 'timestamp': 5, 'type': OType.ADD, 'quantity': 2, 'side': Side.ASK, 'price': 50}
+        self.l1._add_order(q2)
+        self.assertEqual(self.l1._ask_book[50]['size'], 2)
+        # remove 1
+        self.l1._modify_order(Side.ASK, 1, 2, 50)
+        self.assertEqual(self.l1._ask_book[50]['size'], 1)
+        self.assertEqual(self.l1._ask_book[50]['orders'][2]['quantity'], 1)
+        self.assertTrue(self.l1._ask_book_prices)
+        # remove remainder
+        self.l1._modify_order(Side.ASK, 1, 2, 50)
+        self.assertFalse(self.l1._ask_book_prices)
+        self.assertEqual(self.l1._ask_book[50]['num_orders'], 0)
+        self.assertEqual(self.l1._ask_book[50]['size'], 0)
+        self.assertFalse(2 in self.l1._ask_book[50]['orders'].keys())
     
     ''' Trade Handling Tests '''
     def test_confirm_trade_local(self):
