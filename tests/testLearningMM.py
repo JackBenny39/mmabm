@@ -241,10 +241,28 @@ class TestTrader(unittest.TestCase):
     
     ''' Accuracy/Profitability Update Tests '''
     def test_update_oi_acc(self):
-        pass
+        self.l1._oi_strat['221212222222222222020222']['accuracy'][0] = 10
+        self.l1._oi_strat['221212222222222222020222']['accuracy'][1] = 10
+        self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 1
+        self.l1._oi_strat['221212222222222222020222']['strategy'] = 4
+        self.l1._current_oi_strat = ['221212222222222222020222']
+        actual = 6
+        self.l1._update_oi_acc(actual)
+        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][0], 12)
+        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][1], 11)
+        self.assertEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'][-1], 12/11)
     
     def test_update_arr_acc(self):
-        pass
+        self.l1._arr_strat['1222102221222222']['accuracy'][0] = 10
+        self.l1._arr_strat['1222102221222222']['accuracy'][1] = 10
+        self.l1._arr_strat['1222102221222222']['accuracy'][-1] = 1
+        self.l1._arr_strat['1222102221222222']['strategy'] = 4
+        self.l1._current_arr_strat = '1222102221222222'
+        actual = 6
+        self.l1._update_arr_acc(actual)
+        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][0], 12)
+        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][1], 11)
+        self.assertEqual(self.l1._arr_strat['1222102221222222']['accuracy'][-1], 12/11)
     
     def test_update_profits(self):
         pass

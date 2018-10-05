@@ -344,7 +344,7 @@ class MarketMakerL():
     def _update_arr_acc(self, actual): #sub out references
         self._arr_strat[self._current_arr_strat]['accuracy'][0] += abs(actual - self._arr_strat[self._current_arr_strat]['strategy'])
         self._arr_strat[self._current_arr_strat]['accuracy'][1] += 1
-        self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._oi_strat[self._current_arr_strat]['accuracy'][1]
+        self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._arr_strat[self._current_arr_strat]['accuracy'][1]
         
     def _update_profits(self, mid):
         if self._last_prices:
