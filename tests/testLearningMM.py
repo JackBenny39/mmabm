@@ -512,7 +512,20 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._mid, 994)
     
     def test_make_spread(self):
-        pass
+        ''' With seeds == 39, '1222102221222222' is the winning arr strategy with a max strength == 4 -> action == '01000' (8)
+        _match_ask_strat('01000') returns 22200 with an action of '1000' -> strategy == 0
+        _match_bid_strat('01000') returns ['21220', '22020', '02022'] with actions of ['0000', '1100', '1111'] -> 
+        strategies == [0, 4, 7] with an average of 11/3 or 3.67.
+        '''
+        self.l1._mid = 1000
+        arr_signal = '1222102221222222'
+        vol = 4
+        bid, ask = self.l1._make_spread(arr_signal, vol)
+        # askadj = 0, bidadj = 11/3
+        # ask = 1000 + int(max(1*4, 1) + 0) = 1004
+        # bid = 1000 - int(max(1*4, 1) + 3.67) = 993
+        self.assertEqual(bid, 993)
+        self.assertEqual(ask, 1004)
     
     def test_update_ask_book(self):
         pass

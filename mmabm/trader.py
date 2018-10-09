@@ -337,27 +337,31 @@ class MarketMakerL():
 
     ''' Update accuracy/rr_spread forecast '''                    
     def _update_oi_acc(self, actual):
-        for strat in self._current_oi_strat: #sub out references
-            self._oi_strat[strat]['accuracy'][0] += abs(actual - self._oi_strat[strat]['strategy'])
-            self._oi_strat[strat]['accuracy'][1] += 1
-            self._oi_strat[strat]['accuracy'][-1] = self._oi_strat[strat]['accuracy'][0]/self._oi_strat[strat]['accuracy'][1]
+        for strat in self._current_oi_strat:
+            accuracy =  self._oi_strat[strat]['accuracy']
+            accuracy[0] += abs(actual - self._oi_strat[strat]['strategy'])
+            accuracy[1] += 1
+            accuracy[-1] = accuracy[0]/accuracy[1]
             
-    def _update_arr_acc(self, actual): #sub out references
-        self._arr_strat[self._current_arr_strat]['accuracy'][0] += abs(actual - self._arr_strat[self._current_arr_strat]['strategy'])
-        self._arr_strat[self._current_arr_strat]['accuracy'][1] += 1
-        self._arr_strat[self._current_arr_strat]['accuracy'][-1] = self._arr_strat[self._current_arr_strat]['accuracy'][0]/self._arr_strat[self._current_arr_strat]['accuracy'][1]
+    def _update_arr_acc(self, actual):
+        accuracy = self._arr_strat[self._current_arr_strat]['accuracy']
+        accuracy[0] += abs(actual - self._arr_strat[self._current_arr_strat]['strategy'])
+        accuracy[1] += 1
+        accuracy[-1] = accuracy[0]/accuracy[1]
         
     def _update_profits(self, mid): # Using realized spread in ticks - maybe use relative realized spread?
         if self._last_sell_prices:
-            for strat in self._current_ask_strat: # sub out references
-                self._askadj_strat[strat]['rr_spread'][0] += sum([x - mid for x in self._last_sell_prices])
-                self._askadj_strat[strat]['rr_spread'][1] += len(self._last_sell_prices)
-                self._askadj_strat[strat]['rr_spread'][-1] = self._askadj_strat[strat]['rr_spread'][0]/self._askadj_strat[strat]['rr_spread'][1]
+            for strat in self._current_ask_strat:
+                rr_spread = self._askadj_strat[strat]['rr_spread']
+                rr_spread[0] += sum([x - mid for x in self._last_sell_prices])
+                rr_spread[1] += len(self._last_sell_prices)
+                rr_spread[-1] = rr_spread[0]/rr_spread[1]
         if self._last_buy_prices:
-            for strat in self._current_bid_strat: # sub out references
-                self._bidadj_strat[strat]['rr_spread'][0] += sum([mid - x for x in self._last_buy_prices])
-                self._bidadj_strat[strat]['rr_spread'][1] += len(self._last_buy_prices)
-                self._bidadj_strat[strat]['rr_spread'][-1] = self._bidadj_strat[strat]['rr_spread'][0]/self._bidadj_strat[strat]['rr_spread'][1]
+            for strat in self._current_bid_strat:
+                rr_spread = self._bidadj_strat[strat]['rr_spread']
+                rr_spread[0] += sum([mid - x for x in self._last_buy_prices])
+                rr_spread[1] += len(self._last_buy_prices)
+                rr_spread[-1] = rr_spread[0]/rr_spread[1]
     
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
@@ -451,8 +455,8 @@ class MarketMakerL():
         self._match_bid_strat(self._arr_strat[self._current_arr_strat]['action'])
         ask_adj = sum([self._askadj_strat[c]['strategy'] for c in self._current_ask_strat])/len(self._current_ask_strat)
         bid_adj = sum([self._bidadj_strat[c]['strategy'] for c in self._current_bid_strat])/len(self._current_bid_strat)
-        ask = self._mid + min(self._a*vol_signal, self._b) + ask_adj
-        bid = self._mid - min(self._a*vol_signal, self._b) + bid_adj
+        ask = self._mid + int(max(self._a*vol_signal, self._b) + ask_adj)
+        bid = self._mid - int(max(self._a*vol_signal, self._b) + bid_adj)
         while ask - bid <= 0:
             if random.random() > 0.5:
                 ask+=1
