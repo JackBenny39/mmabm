@@ -80,19 +80,16 @@ class TestTrader(unittest.TestCase):
         gene_n2 = 25
         arr_cond_n = 16
         oi_cond_n = 24
-        bidp_cond_n = 5
-        askp_cond_n = 5
+        spr_cond_n = 5
         arr_fcst_n = 5
         oi_fcst_n = 6
-        bidp_adj_n = 4
-        askp_adj_n = 4
+        spr_adj_n = 4
         probs = [0.05, 0.05, 0.9]
         
         arr_genes = {}
         oi_genes = {}
-        bidp_genes = {}
-        askp_genes = {}
-        genes = tuple([oi_genes, arr_genes, askp_genes, bidp_genes])
+        spread_genes = {}
+        genes = tuple([oi_genes, arr_genes, spread_genes])
         while len(arr_genes) < gene_n1:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
@@ -101,14 +98,10 @@ class TestTrader(unittest.TestCase):
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
             gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
             oi_genes.update({gk: gv})
-        while len(bidp_genes) < gene_n2:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bidp_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), bidp_adj_n))
-            bidp_genes.update({gk: gv})
-        while len(askp_genes) < gene_n2:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), askp_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), askp_adj_n))
-            askp_genes.update({gk: gv})
+        while len(spread_genes) < gene_n2:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), spr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), spr_adj_n))
+            spread_genes.update({gk: gv})
         maxq = 5
         a = b = 1
         c = -1
@@ -127,14 +120,11 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(len(self.l1._arr_strat), 100)
         #print(self.l1._arr_strat, self.l1._arr_len, len(self.l1._oi_strat))
         
-    def test_make_bidask_strat2(self):
-        ''' The Bid and Ask Adj strats have 25 genes each with 5 bits '''
-        self.assertEqual(self.l1._ask_len, 5)
-        self.assertEqual(len(self.l1._askadj_strat), 25)
-        self.assertEqual(self.l1._bid_len, 5)
-        self.assertEqual(len(self.l1._bidadj_strat), 25)
-        #print(self.l1._askadj_strat, self.l1._ask_len, len(self.l1._askadj_strat))
-        #print(self.l1._bidadj_strat, self.l1._bid_len, len(self.l1._bidadj_strat))
+    def test_make_spread_strat2(self):
+        ''' The Spread Adj strat has 25 genes each with 5 bits '''
+        self.assertEqual(self.l1._spr_len, 5)
+        self.assertEqual(len(self.l1._spradj_strat), 25)
+        #print(self.l1._spradj_strat, self.l1._spr_len, len(self.l1._spradj_strat))
         
     @unittest.skip('Takes too long to run every time')
     def test_make_oi_strat(self):
@@ -155,22 +145,15 @@ class TestTrader(unittest.TestCase):
                 self.assertEqual(self.l1._arr_strat[i]['accuracy'], [0, 0, 0])
                 
     @unittest.skip('Takes too long to run every time')        
-    def test_make_bidask_strat(self):
+    def test_make_spread_strat(self):
         ''' Test for proper conversion from bitstring to integer '''
-        #ask strategy
-        for i in self.l1._askadj_strat.keys():
+        # spread strategy
+        for i in self.l1._spradj_strat.keys():
             with self.subTest(i=i):
-                self.assertEqual(int(self.l1._askadj_strat[i]['action'][1:], 2), abs(self.l1._askadj_strat[i]['strategy']))
-                if self.l1._askadj_strat[i]['strategy'] != 0:
-                    self.assertEqual(int(self.l1._askadj_strat[i]['action'][0]), self.l1._askadj_strat[i]['strategy']>0)
-                self.assertEqual(self.l1._askadj_strat[i]['rr_spread'], [0, 0, 0])
-        #bid strategy        
-        for i in self.l1._bidadj_strat.keys():
-            with self.subTest(i=i):
-                self.assertEqual(int(self.l1._bidadj_strat[i]['action'][1:], 2), abs(self.l1._bidadj_strat[i]['strategy']))
-                if self.l1._bidadj_strat[i]['strategy'] != 0:
-                    self.assertEqual(int(self.l1._bidadj_strat[i]['action'][0]), self.l1._bidadj_strat[i]['strategy']>0)
-                self.assertEqual(self.l1._bidadj_strat[i]['rr_spread'], [0, 0, 0])
+                self.assertEqual(int(self.l1._spradj_strat[i]['action'][1:], 2), abs(self.l1._spradj_strat[i]['strategy']))
+                if self.l1._spradj_strat[i]['strategy'] != 0:
+                    self.assertEqual(int(self.l1._spradj_strat[i]['action'][0]), self.l1._spradj_strat[i]['strategy']>0)
+                self.assertEqual(self.l1._spradj_strat[i]['rr_spread'], [0, 0, 0])
         
     ''' Strategy Matching Tests '''
     def test_match_oi_strat2(self):
@@ -216,46 +199,23 @@ class TestTrader(unittest.TestCase):
         self.assertTrue('2122102221222222' in self.l1._current_arr_strat)
         self.assertFalse('1222102221222222' in self.l1._current_arr_strat)
     
-    def test_match_ask_strat(self):
-        ''' With seeds == 39, '22012' is the winning strategy with a max strength == 2  '''
+    def test_match_spread_strat(self):
+        ''' With seeds == 39, ['21220', '22020', '02022', '21212', '22210', '02212'] are the winning strategies with a max strength == 2  '''
         signal = '01010'
-        self.l1._match_ask_strat(signal)
-        self.assertEqual(self.l1._current_ask_strat[0], '22012')
-        self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
-        self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
-        # Another winner could be '01222' - set rr_spread higher
-        self.l1._askadj_strat['01222'] = {'action': 'xxxxx', 'strategy': 999, 'rr_spread': [0, 0, 1]}
-        self.l1._match_ask_strat(signal)
-        self.assertEqual(self.l1._current_ask_strat[0], '01222')
-        self.assertTrue(all([(self.l1._current_ask_strat[0][x] == signal[x] or self.l1._current_ask_strat[0][x] == '2') for x in range(self.l1._ask_len)]))
-        self.assertEqual(sum([self.l1._current_ask_strat[0][x] == signal[x] for x in range(self.l1._ask_len)]), 2)
-        # Set previous winner rr_spread to 1
-        self.l1._askadj_strat['22012']['rr_spread'][-1] = 1
-        self.l1._match_ask_strat(signal)
-        for j in ['01222', '22012']:
-            self.assertTrue(j in self.l1._current_ask_strat)
-        for i in self.l1._current_ask_strat:
+        self.l1._match_spread_strat(signal)
+        for j in ['21220', '22020', '02022', '21212', '22210', '02212']:
+            self.assertTrue(j in self.l1._current_spradj_strat)
+        for i in self.l1._current_spradj_strat:
             with self.subTest(i=i):
-                self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._ask_len)]))
-                self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._ask_len)]), 2)
-    
-    def test_match_bid_strat(self):
-        ''' With seeds == 39, there are 4 winning strategies with a max strength == 2: 22020, 02022, 22210, 02212 '''
-        signal = '01010'
-        self.l1._match_bid_strat(signal)
-        for j in ['22020', '02022', '22210', '02212']:
-            self.assertTrue(j in self.l1._current_bid_strat)
-        for i in self.l1._current_bid_strat:
-            with self.subTest(i=i):
-                self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._bid_len)]))
-                self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._bid_len)]), 2)
-        # Set one of the winner rr_spread higher
-        self.l1._bidadj_strat['02022']['rr_spread'][-1] = 1
-        self.l1._match_bid_strat(signal)
-        self.assertEqual(len(self.l1._current_bid_strat), 1)
-        self.assertEqual(self.l1._current_bid_strat[0], '02022')
-        self.assertTrue(all([(self.l1._current_bid_strat[0][x] == signal[x] or self.l1._current_bid_strat[0][x] == '2') for x in range(self.l1._bid_len)]))
-        self.assertEqual(sum([self.l1._current_bid_strat[0][x] == signal[x] for x in range(self.l1._bid_len)]), 2)
+                self.assertTrue(all([(i[x] == signal[x] or i[x] == '2') for x in range(self.l1._spr_len)]))
+                self.assertEqual(sum([i[x] == signal[x] for x in range(self.l1._spr_len)]), 2)
+        # Winner '01222' - set rr_spread higher
+        self.l1._spradj_strat['01222'] = {'action': 'xxxxx', 'strategy': 999, 'rr_spread': [0, 0, 1]}
+        self.l1._match_spread_strat(signal)
+        self.assertEqual(len(self.l1._current_spradj_strat), 1)
+        self.assertEqual(self.l1._current_spradj_strat[0], '01222')
+        self.assertTrue(all([(self.l1._current_spradj_strat[0][x] == signal[x] or self.l1._current_spradj_strat[0][x] == '2') for x in range(self.l1._spr_len)]))
+        self.assertEqual(sum([self.l1._current_spradj_strat[0][x] == signal[x] for x in range(self.l1._spr_len)]), 2)
     
     ''' Accuracy/Profitability Update Tests '''
     def test_update_oi_acc(self):
@@ -278,21 +238,16 @@ class TestTrader(unittest.TestCase):
         self.l1._update_arr_acc(actual)
         self.assertListEqual(self.l1._arr_strat['1222102221222222']['accuracy'], [12, 11, 12/11])
     
-    def test_update_profits(self):
-        self.l1._askadj_strat['22012']['rr_spread'][0] = 10000
-        self.l1._askadj_strat['22012']['rr_spread'][1] = 1000
-        self.l1._askadj_strat['22012']['rr_spread'][-1] = 10
-        self.l1._current_ask_strat = ['22012']
-        self.l1._bidadj_strat['02022']['rr_spread'][0] = 10000
-        self.l1._bidadj_strat['02022']['rr_spread'][1] = 1000
-        self.l1._bidadj_strat['02022']['rr_spread'][-1] = 10
-        self.l1._current_bid_strat = ['02022']
+    def test_update_rspr(self):
+        self.l1._spradj_strat['21220']['rr_spread'][0] = 10000
+        self.l1._spradj_strat['21220']['rr_spread'][1] = 1000
+        self.l1._spradj_strat['21220']['rr_spread'][-1] = 10
+        self.l1._current_spradj_strat = ['21220']
         mid = 1000
         self.l1._last_buy_prices = [998, 999]
         self.l1._last_sell_prices = [1001, 1002]
-        self.l1._update_profits(mid)
-        self.assertListEqual(self.l1._askadj_strat['22012']['rr_spread'], [10003, 1002, 10003/1002])
-        self.assertListEqual(self.l1._bidadj_strat['02022']['rr_spread'], [10003, 1002, 10003/1002])
+        self.l1._update_rspr(mid)
+        self.assertListEqual(self.l1._spradj_strat['21220']['rr_spread'], [10006, 1004, 10006/1004])
     
     ''' Order Construction Tests '''    
     def test_make_add_quote(self):
@@ -513,22 +468,39 @@ class TestTrader(unittest.TestCase):
     
     def test_make_spread(self):
         ''' With seeds == 39, '1222102221222222' is the winning arr strategy with a max strength == 4 -> action == '01000' (8)
-        _match_ask_strat('01000') returns 22200 with an action of '1000' -> strategy == 0
-        _match_bid_strat('01000') returns ['21220', '22020', '02022'] with actions of ['0000', '1100', '1111'] -> 
-        strategies == [0, 4, 7] with an average of 11/3 or 3.67.
+        _match_spread_strat('01000') returns ['21220', '22020', '02022'] with an actions of ['0000', '1100', '1111'] -> 
+        strategy == [0, 4, 7] for an average of 3.67
         '''
         self.l1._mid = 1000
         arr_signal = '1222102221222222'
         vol = 4
         bid, ask = self.l1._make_spread(arr_signal, vol)
-        # askadj = 0, bidadj = 11/3
-        # ask = 1000 + int(max(1*4, 1) + 0) = 1004
-        # bid = 1000 - int(max(1*4, 1) + 3.67) = 993
-        self.assertEqual(bid, 993)
-        self.assertEqual(ask, 1004)
+        # spradj = 3.67
+        # ask = 1000 + round(max(1*4, 1) + 3.67/2) = 1006
+        # bid = 1000 - round(max(1*4, 1) + 3.67/2) = 994
+        self.assertEqual(bid, 994)
+        self.assertEqual(ask, 1006)
     
     def test_update_ask_book(self):
-        pass
+        ''' Three possibilities:
+        1. new best ask < current best ask: add new ask orders
+        2. new best ask > current best ask: cancel current ask orders with prices < new best ask
+        3. new best ask == current best ask: check for max size and add size if necessary
+        Also, price range should always be between best ask +20 and best ask +60
+        '''
+        # Create asks from 1005 - 1035
+        for p in range(1005, 1036):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
+        for p in range(1005, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        # case 1: new ask = 1000 -> add 5 new prices
+        self.l1._update_ask_book(6, 1000)
+        for p in range(1000, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        self.assertEqual(len(self.l1.quote_collector), 5)
+            
     
     def test_update_bid_book(self):
         pass

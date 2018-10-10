@@ -227,13 +227,11 @@ class MarketMakerL():
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
-        self._askadj_strat, self._ask_len = self._make_bidask_strat2(geneset[2])
-        self._bidadj_strat, self._bid_len = self._make_bidask_strat2(geneset[3])
+        self._spradj_strat, self._spr_len = self._make_spread_strat2(geneset[2])
         
         self._current_oi_strat = []
         self._current_arr_strat = None
-        self._current_ask_strat = []
-        self._current_bid_strat = []
+        self._current_spradj_strat = []
 
 
     ''' New Strategy '''    
@@ -245,7 +243,7 @@ class MarketMakerL():
         arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 0]} for k, v in arr_chroms.items()}
         return arr_strat, len(list(arr_chroms.keys())[0])
     
-    def _make_bidask_strat2(self, ba_chroms):
+    def _make_spread_strat2(self, ba_chroms):
         ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'rr_spread': [0, 0, 0]} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
 
@@ -293,47 +291,26 @@ class MarketMakerL():
                         temp_strats.append(cond)         
         self._current_arr_strat = random.choice(temp_strats)
                 
-    def _match_ask_strat(self, arrivals):
+    def _match_spread_strat(self, arrivals):
         '''Returns all strategies with the maximum accuracy'''
-        self._current_ask_strat.clear()
+        self._current_spradj_strat.clear()
         max_strength = 0
-        max_profits = 0
-        for cond in self._askadj_strat.keys():
-            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._ask_len)]):
-                strength = sum([cond[x] == arrivals[x] for x in range(self._ask_len)])
+        max_rs = 0
+        for cond in self._spradj_strat.keys():
+            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._spr_len)]):
+                strength = sum([cond[x] == arrivals[x] for x in range(self._spr_len)])
                 if strength > max_strength:
-                    self._current_ask_strat.clear()
-                    self._current_ask_strat.append(cond)
+                    self._current_spradj_strat.clear()
+                    self._current_spradj_strat.append(cond)
                     max_strength = strength
-                    max_profits = self._askadj_strat[cond]['rr_spread'][-1]
+                    max_rs = self._spradj_strat[cond]['rr_spread'][-1]
                 elif strength == max_strength:
-                    if self._askadj_strat[cond]['rr_spread'][-1] > max_profits:
-                        self._current_ask_strat.clear()
-                        self._current_ask_strat.append(cond)
-                        max_profits = self._askadj_strat[cond]['rr_spread'][-1]
-                    elif self._askadj_strat[cond]['rr_spread'][-1] == max_profits:
-                        self._current_ask_strat.append(cond)         
-    
-    def _match_bid_strat(self, arrivals):
-        '''Returns all strategies with the maximum accuracy'''
-        self._current_bid_strat.clear()
-        max_strength = 0
-        max_profits = 0
-        for cond in self._bidadj_strat.keys():
-            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._bid_len)]):
-                strength = sum([cond[x] == arrivals[x] for x in range(self._bid_len)])
-                if strength > max_strength:
-                    self._current_bid_strat.clear()
-                    self._current_bid_strat.append(cond)
-                    max_strength = strength
-                    max_profits = self._bidadj_strat[cond]['rr_spread'][-1]
-                elif strength == max_strength:
-                    if self._bidadj_strat[cond]['rr_spread'][-1] > max_profits:
-                        self._current_bid_strat.clear()
-                        self._current_bid_strat.append(cond)
-                        max_profits = self._bidadj_strat[cond]['rr_spread'][-1]
-                    elif self._bidadj_strat[cond]['rr_spread'][-1] == max_profits:
-                        self._current_bid_strat.append(cond)
+                    if self._spradj_strat[cond]['rr_spread'][-1] > max_rs:
+                        self._current_spradj_strat.clear()
+                        self._current_spradj_strat.append(cond)
+                        max_rs = self._spradj_strat[cond]['rr_spread'][-1]
+                    elif self._spradj_strat[cond]['rr_spread'][-1] == max_rs:
+                        self._current_spradj_strat.append(cond)
 
     ''' Update accuracy/rr_spread forecast '''                    
     def _update_oi_acc(self, actual):
@@ -349,16 +326,16 @@ class MarketMakerL():
         accuracy[1] += 1
         accuracy[-1] = accuracy[0]/accuracy[1]
         
-    def _update_profits(self, mid): # Using realized spread in ticks - maybe use relative realized spread?
+    def _update_rspr(self, mid): # Using realized spread in ticks - maybe use relative realized spread?
         if self._last_sell_prices:
-            for strat in self._current_ask_strat:
-                rr_spread = self._askadj_strat[strat]['rr_spread']
+            for strat in self._current_spradj_strat:
+                rr_spread = self._spradj_strat[strat]['rr_spread']
                 rr_spread[0] += sum([x - mid for x in self._last_sell_prices])
                 rr_spread[1] += len(self._last_sell_prices)
                 rr_spread[-1] = rr_spread[0]/rr_spread[1]
         if self._last_buy_prices:
-            for strat in self._current_bid_strat:
-                rr_spread = self._bidadj_strat[strat]['rr_spread']
+            for strat in self._current_spradj_strat:
+                rr_spread = self._spradj_strat[strat]['rr_spread']
                 rr_spread[0] += sum([mid - x for x in self._last_buy_prices])
                 rr_spread[1] += len(self._last_buy_prices)
                 rr_spread[-1] = rr_spread[0]/rr_spread[1]
@@ -451,12 +428,10 @@ class MarketMakerL():
         average the most profitable adjustment strategies (if more than one); insert into
         ask and bid price adjustment; check for non-positive spread'''
         self._match_arr_strat2(arr_signal)
-        self._match_ask_strat(self._arr_strat[self._current_arr_strat]['action'])
-        self._match_bid_strat(self._arr_strat[self._current_arr_strat]['action'])
-        ask_adj = sum([self._askadj_strat[c]['strategy'] for c in self._current_ask_strat])/len(self._current_ask_strat)
-        bid_adj = sum([self._bidadj_strat[c]['strategy'] for c in self._current_bid_strat])/len(self._current_bid_strat)
-        ask = self._mid + int(max(self._a*vol_signal, self._b) + ask_adj)
-        bid = self._mid - int(max(self._a*vol_signal, self._b) + bid_adj)
+        self._match_spread_strat(self._arr_strat[self._current_arr_strat]['action'])
+        spr_adj = sum([self._spradj_strat[c]['strategy'] for c in self._current_spradj_strat])/len(self._current_spradj_strat)
+        ask = self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2)
+        bid = self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2)
         while ask - bid <= 0:
             if random.random() > 0.5:
                 ask+=1
