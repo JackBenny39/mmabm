@@ -218,6 +218,7 @@ class MarketMakerL():
         self.quote_collector = []
         self.cancel_collector = []
         
+        self._mid = 0
         self._delta_inv = 0
         self._cash_flow = 0
         self.cash_flow_collector = []
@@ -437,7 +438,7 @@ class MarketMakerL():
                 ask+=1
             else:
                 bid-=1
-        return bid, ask
+        return int(bid), int(ask)
     
     def _update_ask_book(self, step, ask):
         best_ask = self._ask_book_prices[0]
@@ -502,6 +503,15 @@ class MarketMakerL():
                 self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
             for c in self.cancel_collector:
                 self._remove_order(c['side'], c['price'], c['order_id'])
+                
+    def seed_book(self, step, ask, bid):
+        q = self._make_add_quote(step, Side.BID, bid, self._maxq)
+        self.quote_collector.append(q)
+        self._add_order(q)
+        q = self._make_add_quote(step, Side.ASK, ask, self._maxq)
+        self.quote_collector.append(q)
+        self._add_order(q)
+        self._mid = (ask+bid)/2
         
     def process_signal(self, step, signal):
         '''
@@ -522,7 +532,7 @@ class MarketMakerL():
         # update scores for predictors
         self._update_oi_acc(signal['oibv'])
         self._update_arr_acc(signal['arrv'])
-        self._update_profits(signal['mid'])
+        self._update_rspr(signal['mid'])
         
         # clear the collectors
         self.quote_collector.clear()
