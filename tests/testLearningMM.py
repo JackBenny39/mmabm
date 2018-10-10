@@ -486,7 +486,7 @@ class TestTrader(unittest.TestCase):
         1. new best ask < current best ask: add new ask orders
         2. new best ask > current best ask: cancel current ask orders with prices < new best ask
         3. new best ask == current best ask: check for max size and add size if necessary
-        Also, price range should always be between best ask +20 and best ask +60
+        Also, price range should always be between best ask + 20 and best ask + 60
         '''
         # Create asks from 1005 - 1035
         for p in range(1005, 1036):
@@ -529,11 +529,57 @@ class TestTrader(unittest.TestCase):
         for p in range(980, 1019):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._ask_book_prices)
-            
-    
+
     def test_update_bid_book(self):
-        pass
-    
+        ''' Three possibilities:
+        1. new best bid > current best bid: add new bid orders
+        2. new best bid < current best bid: cancel current bid orders with prices < new best bid
+        3. new best bid == current best bid: check for max size and add size if necessary
+        Also, price range should always be between best bid - 20 and best bid - 60
+        '''
+        # Create bids from 960 - 990
+        for p in range(960, 991):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+        for p in range(960, 991):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+        # case 1: new bid = 995 -> add 5 new prices
+        self.l1._update_bid_book(6, 995)
+        for p in range(960, 996):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+        self.assertEqual(len(self.l1.quote_collector), 5)
+        # case 2: new bid = 992 -> cancel 3 prices: 993, 994, 995
+        self.l1._update_bid_book(7, 992)
+        for p in range(960, 993):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+        for p in range(993, 996):
+            with self.subTest(p=p):
+                self.assertFalse(p in self.l1._bid_book_prices)
+        self.assertEqual(len(self.l1.cancel_collector), 3)
+        # case 3: new bid size == 2 -> replenish size to 5 with new add order
+        self.l1._modify_order(Side.BID, 3, 33, 992)
+        self.assertEqual(self.l1._bid_book[992]['orders'][33]['quantity'], 2)
+        self.assertEqual(self.l1._bid_book[992]['size'], 2)
+        self.assertEqual(self.l1._bid_book[992]['num_orders'], 1)
+        self.l1.quote_collector.clear() # happens in process_order
+        self.l1._update_bid_book(8, 992)
+        self.assertEqual(self.l1._bid_book[992]['size'], 5)
+        self.assertEqual(self.l1._bid_book[992]['num_orders'], 2)
+        self.assertEqual(len(self.l1.quote_collector), 1)
+        # make best bid == 975 -> add orders to the other end of the book to make 40 prices
+        self.l1._update_bid_book(9, 975)
+        for p in range(936, 975):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+        # make best bid == 1000 -> cancel orders on the other end of the book to make 40 prices
+        self.l1._update_bid_book(10, 1000)
+        print(self.l1._bid_book_prices)
+        for p in range(961, 1001):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+
     def test_process_signal(self):
         pass
         

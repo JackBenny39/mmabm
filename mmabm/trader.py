@@ -484,26 +484,24 @@ class MarketMakerL():
                 self._add_order(q)
         elif bid < best_bid:
             for p in range(bid+1, best_bid+1):
-                for q in self._bid_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-                for c in self.cancel_collector:
-                    self._remove_order(c['side'], c['price'], c['order_id'])
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+            for c in self.cancel_collector:
+                self._remove_order(c['side'], c['price'], c['order_id'])
         else:
             if self._bid_book[best_bid]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._bid_book_prices) < 20:
-            for p in range(self._bid_book_prices[0] - 40 + self._bid_book_prices, self._bid_book_prices[0]):
+            for p in range(self._bid_book_prices[0] - 40 + len(self._bid_book_prices), self._bid_book_prices[0]):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._bid_book_prices) > 60:
-            for p in range(self._bid_book_prices[0], self._bid_book_prices[0]+21):
-                for q in self._bid_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-                for c in self.cancel_collector:
-                    self._remove_order(c['side'], c['price'], c['order_id'])
+            for p in range(self._bid_book_prices[0], self._bid_book_prices[-1] - 39):
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+            for c in self.cancel_collector:
+                self._remove_order(c['side'], c['price'], c['order_id'])
         
     def process_signal(self, step, signal):
         '''
