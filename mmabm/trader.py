@@ -361,7 +361,7 @@ class MarketMakerL():
                 'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
         
     def _make_cancel_quote(self, q, time):
-        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': self.trader_id,
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
         
     ''' Orderbook Bookkeeping with List'''
@@ -452,10 +452,9 @@ class MarketMakerL():
                 self._add_order(q)
         elif ask > best_ask:
             for p in range(best_ask, ask):
-                for q in self._ask_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-                for c in self.cancel_collector:
-                    self._remove_order(c['side'], c['price'], c['order_id'])
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
+            for c in self.cancel_collector:
+                self._remove_order(c['side'], c['price'], c['order_id'])
         else:
             if self._ask_book[best_ask]['size'] < self._maxq:
                 q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
@@ -467,11 +466,10 @@ class MarketMakerL():
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._ask_book_prices) > 60:
-            for p in range(self._ask_book_prices[-1] - 20, self._ask_book_prices[-1]+1):
-                for q in self._ask_book[p]:
-                    self.cancel_collector.append(self._make_cancel_quote(q, step))
-                for c in self.cancel_collector:
-                    self._remove_order(c['side'], c['price'], c['order_id'])
+            for p in range(self._ask_book_prices[0] + 40, self._ask_book_prices[-1] + 1):
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
+            for c in self.cancel_collector:
+                self._remove_order(c['side'], c['price'], c['order_id'])
                 
     def _update_bid_book(self, step, bid):
         best_bid = self._bid_book_prices[-1]
