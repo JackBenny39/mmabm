@@ -105,7 +105,8 @@ class TestTrader(unittest.TestCase):
         maxq = 5
         a = b = 1
         c = -1
-        return MarketMakerL(tid, maxq, a, b, c, genes)
+        keeper = 0.8
+        return MarketMakerL(tid, maxq, a, b, c, genes, keeper)
     
     ''' Strategy Construction Tests '''    
     def test_make_oi_strat2(self):
@@ -600,8 +601,8 @@ class TestTrader(unittest.TestCase):
         self.l1._last_sell_prices = [1001, 1002]
         self.l1._delta_inv = 3
         
-        ask = 1020 # stub quotes?
-        bid = 980 # stub quotes?
+        ask = 1015 # stub quotes?
+        bid = 985 # stub quotes?
         step = 20
         
         self.l1.seed_book(step, ask, bid)
@@ -627,4 +628,8 @@ class TestTrader(unittest.TestCase):
         self.assertFalse(self.l1._delta_inv)
         self.assertFalse(self.l1._last_buy_prices)
         self.assertFalse(self.l1._last_sell_prices)
+        
+    def test_find_winners(self):
+        self.l1._oi_strat['202222221222222222220222']['accuracy'][2] = -1
+        self.l1._find_winners()
         

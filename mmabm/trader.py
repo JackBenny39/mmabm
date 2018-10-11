@@ -203,7 +203,7 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, maxq, a, b, c, geneset):
+    def __init__(self, name, maxq, a, b, c, geneset, keep_pct):
         self.trader_id = name # trader id
         self._maxq = maxq
         self._a = a
@@ -227,12 +227,15 @@ class MarketMakerL():
         self._last_sell_prices = []
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
+        self._oi_keep = int(keep_pct * len(self._oi_strat) + 1)
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
         self._spradj_strat, self._spr_len = self._make_spread_strat2(geneset[2])
         
         self._current_oi_strat = []
         self._current_arr_strat = None
         self._current_spradj_strat = []
+        
+        self._keep_p = keep_pct
 
 
     ''' New Strategy '''    
@@ -555,6 +558,14 @@ class MarketMakerL():
         self._last_buy_prices.clear()
         self._last_sell_prices.clear()
         
+    ''' Genetic Algorithm Machinery '''
+    def _find_winners(self):
+        sorted_by_scores = sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])
+        print(sorted_by_scores)
+        keeper = sorted_by_scores[:self._oi_keep]
+        print(keeper[0][0])
+        temp_oi = dict(sorted_by_scores)
+        print(temp_oi)
 
 class PennyJumper(ZITrader):
     '''
