@@ -228,10 +228,13 @@ class MarketMakerL():
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
         self._oi_keep = int(keep_pct * len(self._oi_strat))
+        self._oi_weights = self._make_weights(self._oi_keep)
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
         self._arr_keep = int(keep_pct * len(self._arr_strat))
+        self._arr_weights = self._make_weights(self._arr_keep)
         self._spradj_strat, self._spr_len = self._make_spread_strat2(geneset[2])
         self._spradj_keep = int(keep_pct * len(self._spradj_strat))
+        self._spradj_weights = self._make_weights(self._spradj_keep)
         
         self._current_oi_strat = []
         self._current_arr_strat = None
@@ -252,6 +255,11 @@ class MarketMakerL():
     def _make_spread_strat2(self, ba_chroms):
         ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'rr_spread': [0, 0, 0]} for k, v in ba_chroms.items()}
         return ba_strat, len(list(ba_chroms.keys())[0])
+    
+    def _make_weights(self, l):
+        denom = sum([j for j in range(1, l+1)])
+        numer = reversed([j for j in range(1, l+1)])
+        return np.cumsum([k/denom for k in numer])
 
     ''' New Matching '''
     def _match_oi_strat2(self, market_state):
@@ -562,13 +570,41 @@ class MarketMakerL():
         
     ''' Genetic Algorithm Machinery '''
     def _find_winners(self):
-        temp_oi = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
-        temp_arr = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
-        temp_spr = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
-        #print(temp_oi, len(temp_oi))
-        #print(temp_arr, len(temp_arr))
-        #print(temp_spr, len(temp_spr))
-        return temp_oi, temp_arr, temp_spr
+        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
+        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
+        self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
+        #temp_oi = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
+        #temp_arr = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
+        #temp_spr = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
+        #return temp_oi, temp_arr, temp_spr
+        
+    def _uniform_selection(self):
+        oi_parents = list(self._oi_strat.keys())
+        arr_parents = list(self._arr_strat.keys())
+        spr_parents = list(self._spradj_strat.keys())
+        o1, o2 = tuple(random.sample(oi_parents, 2))
+        a1, a2 = tuple(random.sample(arr_parents, 2))
+        s1, s2 = tuple(random.sample(spr_parents, 2))
+        print(o1, o2)
+        print(a1, a2)
+        print(s1, s2)
+    
+    def _weighted_selection(self):
+        oi_parents = list(self._oi_strat.keys())
+        arr_parents = list(self._arr_strat.keys())
+        spr_parents = list(self._spradj_strat.keys())
+        o1, o2 = tuple(random.choices(oi_parents, cum_weights=self._oi_weights, k=2))
+        a1, a2 = tuple(random.choices(arr_parents, cum_weights=self._arr_weights, k=2))
+        s1, s2 = tuple(random.choices(spr_parents, cum_weights=self._spradj_weights, k=2))
+        print(o1, o2)
+        print(a1, a2)
+        print(s1, s2)
+        
+        
+    
+    def _genetics(self):
+        self._find_winners()
+        self._weighted_selection()
 
 class PennyJumper(ZITrader):
     '''

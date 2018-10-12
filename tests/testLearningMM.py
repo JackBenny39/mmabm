@@ -636,20 +636,43 @@ class TestTrader(unittest.TestCase):
             self.l1._arr_strat[k]['accuracy'][2] = -j
         for j, k in enumerate(self.l1._spradj_strat.keys()):
             self.l1._spradj_strat[k]['rr_spread'][2] = j
-        oi, arr, spr = self.l1._find_winners()
-        oi_accs = [kv[1]['accuracy'][2] for kv in oi.items()]
+        self.l1._find_winners()
+        oi_accs = [kv[1]['accuracy'][2] for kv in self.l1._oi_strat.items()]
         for j in range(-99, -19):
             self.assertTrue(j in oi_accs)
         self.assertEqual(min(oi_accs), -99)
         self.assertEqual(max(oi_accs), -20)
-        arr_accs = [kv[1]['accuracy'][2] for kv in arr.items()]
+        arr_accs = [kv[1]['accuracy'][2] for kv in self.l1._arr_strat.items()]
         for j in range(-99, -19):
             self.assertTrue(j in arr_accs)
         self.assertEqual(min(arr_accs), -99)
         self.assertEqual(max(arr_accs), -20)
-        spr_rr = [kv[1]['rr_spread'][2] for kv in spr.items()]
+        spr_rr = [kv[1]['rr_spread'][2] for kv in self.l1._spradj_strat.items()]
         for j in range(5, 25):
             self.assertTrue(j in spr_rr)
         self.assertEqual(min(spr_rr), 5)
         self.assertEqual(max(spr_rr), 24)
+        
+    def test_uniform_selection(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][2] = -j
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][2] = -j
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.l1._find_winners()
+        self.l1._uniform_selection()
+        
+    def test_weighted_selection(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][2] = -j
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][2] = -j
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.l1._find_winners()
+        self.l1._weighted_selection()
+    @unittest.skip('For now')    
+    def test_genetics(self):
+        self.l1._genetics()
         
