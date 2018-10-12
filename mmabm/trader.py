@@ -227,9 +227,11 @@ class MarketMakerL():
         self._last_sell_prices = []
         
         self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
-        self._oi_keep = int(keep_pct * len(self._oi_strat) + 1)
+        self._oi_keep = int(keep_pct * len(self._oi_strat))
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
+        self._arr_keep = int(keep_pct * len(self._arr_strat))
         self._spradj_strat, self._spr_len = self._make_spread_strat2(geneset[2])
+        self._spradj_keep = int(keep_pct * len(self._spradj_strat))
         
         self._current_oi_strat = []
         self._current_arr_strat = None
@@ -560,12 +562,13 @@ class MarketMakerL():
         
     ''' Genetic Algorithm Machinery '''
     def _find_winners(self):
-        sorted_by_scores = sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])
-        print(sorted_by_scores)
-        keeper = sorted_by_scores[:self._oi_keep]
-        print(keeper[0][0])
-        temp_oi = dict(sorted_by_scores)
-        print(temp_oi)
+        temp_oi = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
+        temp_arr = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
+        temp_spr = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
+        #print(temp_oi, len(temp_oi))
+        #print(temp_arr, len(temp_arr))
+        #print(temp_spr, len(temp_spr))
+        return temp_oi, temp_arr, temp_spr
 
 class PennyJumper(ZITrader):
     '''
