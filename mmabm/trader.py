@@ -203,7 +203,7 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, maxq, a, b, c, geneset, keep_pct):
+    def __init__(self, name, maxq, a, b, c, geneset, keep_pct, m):
         self.trader_id = name # trader id
         self._maxq = maxq
         self._a = a
@@ -226,7 +226,7 @@ class MarketMakerL():
         self._last_buy_prices = []
         self._last_sell_prices = []
         
-        self._oi_strat, self._oi_len = self._make_oi_strat2(geneset[0])
+        self._oi_strat, self._oi_len, self._oi_ngene = self._make_oi_strat2(geneset[0])
         self._oi_keep = int(keep_pct * len(self._oi_strat))
         self._oi_weights = self._make_weights(self._oi_keep)
         self._arr_strat, self._arr_len = self._make_arr_strat2(geneset[1])
@@ -241,12 +241,13 @@ class MarketMakerL():
         self._current_spradj_strat = []
         
         self._keep_p = keep_pct
+        self._mutate_p = m
 
 
     ''' New Strategy '''    
     def _make_oi_strat2(self, oi_chroms):
         oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0, 0]} for k, v in oi_chroms.items()}
-        return oi_strat, len(list(oi_chroms.keys())[0])
+        return oi_strat, len(list(oi_chroms.keys())[0]), len(oi_strat)
     
     def _make_arr_strat2(self, arr_chroms):
         arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 0]} for k, v in arr_chroms.items()}
@@ -573,10 +574,6 @@ class MarketMakerL():
         self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
         self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
         self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
-        #temp_oi = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
-        #temp_arr = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
-        #temp_spr = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
-        #return temp_oi, temp_arr, temp_spr
         
     def _uniform_selection(self):
         oi_parents = list(self._oi_strat.keys())
@@ -600,11 +597,55 @@ class MarketMakerL():
         print(a1, a2)
         print(s1, s2)
         
+    def _crossover(self, p1, p2, x):
+        return p1[:x] + p2[x:]
+    
+    def _mutate_cond(self, c, l):
+        c[random.randrange(l)] = random.randrange(3)
+        return c
+ 
+    def _mutate_action(self, c, l):
+        c[random.randrange(l)] = random.randrange(2)
+        return c
+    
+    def _oi_genes_us(self):
+        # Step 1: get the genes
+        oi_parents = list(self._oi_strat.keys())
+        # Step 2: update the strategy dict with unique new children
+        while len(self._oi_strat) < self._oi_ngene:
+            # Choose two parents - uniform selection
+            o1, o2 = tuple(random.sample(oi_parents, 2))
+            # Random uniform crossover
+            x = random.randrange(self._oi_len)
+            o = o1[:x] + o2[x:]
+            # Random uniform mutate
+            if random.random() < self._mutate_p:
+                o[random.randrange(self._oi_len)] = random.randrange(3)
+            # Check if new child differs from current parents
+            if o not in oi_parents:
+                # Update child action & strategy
+                y = random.random()
+                if y < 0.333: # choose parent 1
+                    action = self._oi_strat[o1]['action']
+                    strategy = self._oi_strat[o1]['strategy']
+                elif y > 0.667: # choose parent 2
+                    action = self._oi_strat[o2]['action']
+                    strategy = self._oi_strat[o2]['strategy']
+                else: # average parent 1 & 2
+                    strategy = int((self._oi_strat[o1]['strategy'] + self._oi_strat[o2]['strategy']) / 2)
+                    action = '1' if strategy > 0 else '0'
+                    action += format(strategy, 'b')[-5:]
+            # Update accuracy - weighted average
+            a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
+            a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
+            accuracy = [a0, a1, a0/a1]
+            # Add new child to strategy dict
+            self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
         
     
     def _genetics(self):
         self._find_winners()
-        self._weighted_selection()
+        self._oi_genes_us()
 
 class PennyJumper(ZITrader):
     '''

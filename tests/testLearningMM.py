@@ -106,7 +106,8 @@ class TestTrader(unittest.TestCase):
         a = b = 1
         c = -1
         keeper = 0.8
-        return MarketMakerL(tid, maxq, a, b, c, genes, keeper)
+        mutate_pct = 0.03
+        return MarketMakerL(tid, maxq, a, b, c, genes, keeper, mutate_pct)
     
     ''' Strategy Construction Tests '''    
     def test_make_oi_strat2(self):
