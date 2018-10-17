@@ -620,7 +620,8 @@ class MarketMakerL():
             o = o1[:x] + o2[x:]
             # Random uniform mutate
             if random.random() < self._mutate_p:
-                o[random.randrange(self._oi_len)] = random.randrange(3)
+                z = random.randrange(self._oi_len)
+                o = o[:z] + str(random.randrange(3)) + o[z+1:]
             # Check if new child differs from current parents
             if o not in oi_parents:
                 # Update child action & strategy
@@ -634,13 +635,14 @@ class MarketMakerL():
                 else: # average parent 1 & 2
                     strategy = int((self._oi_strat[o1]['strategy'] + self._oi_strat[o2]['strategy']) / 2)
                     action = '1' if strategy > 0 else '0'
-                    action += format(strategy, 'b')[-5:]
-            # Update accuracy - weighted average
-            a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
-            a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
-            accuracy = [a0, a1, a0/a1]
-            # Add new child to strategy dict
-            self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                    action += format(abs(strategy), 'b').rjust(5, '0')
+                # Update accuracy - weighted average
+                a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
+                a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
+                accuracy = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                oi_parents.append(o)
             
     def _arr_genes_us(self):
         # Step 1: get the genes
@@ -654,7 +656,8 @@ class MarketMakerL():
             r = r1[:x] + r2[x:]
             # Random uniform mutate
             if random.random() < self._mutate_p:
-                r[random.randrange(self._arr_len)] = random.randrange(3)
+                z = random.randrange(self._arr_len)
+                r = r[:z] + str(random.randrange(3)) + r[z+1:]
             # Check if new child differs from current parents
             if r not in arr_parents:
                 # Update child action & strategy
@@ -667,13 +670,14 @@ class MarketMakerL():
                     strategy = self._arr_strat[r2]['strategy']
                 else: # average parent 1 & 2
                     strategy = int((self._arr_strat[r1]['strategy'] + self._arr_strat[r2]['strategy']) / 2)
-                    action = format(strategy, 'b')
-            # Update accuracy - weighted average
-            a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
-            a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
-            accuracy = [a0, a1, a0/a1]
-            # Add new child to strategy dict
-            self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                    action = format(strategy, 'b').rjust(5, '0')
+                # Update accuracy - weighted average
+                a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
+                a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
+                accuracy = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                arr_parents.append(r)
             
     def _spr_genes_us(self):
         # Step 1: get the genes
@@ -687,7 +691,8 @@ class MarketMakerL():
             s = s1[:x] + s2[x:]
             # Random uniform mutate
             if random.random() < self._mutate_p:
-                s[random.randrange(self._arr_len)] = random.randrange(3)
+                z = random.randrange(self._spr_len)
+                s = s[:z] + str(random.randrange(3)) + s[z+1:]
             # Check if new child differs from current parents
             if s not in spr_parents:
                 # Update child action & strategy
@@ -701,19 +706,133 @@ class MarketMakerL():
                 else: # average parent 1 & 2
                     strategy = int((self._spradj_strat[s1]['strategy'] + self._spradj_strat[s2]['strategy']) / 2)
                     action = '1' if strategy > 0 else '0'
-                    action += format(strategy, 'b')[-3:]
-            # Update accuracy - weighted average
-            a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
-            a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
-            rr_spread = [a0, a1, a0/a1]
-            # Add new child to strategy dict
-            self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
-        
+                    action += format(abs(strategy), 'b').rjust(3, '0')
+                # Update accuracy - weighted average
+                a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
+                a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
+                rr_spread = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
+                spr_parents.append(s)
     
-    def _genetics(self):
+    def _genetics_us(self):
         self._find_winners()
         self._oi_genes_us()
         self._arr_genes_us()
+        self._spr_genes_us()
+        
+    def _oi_genes_ws(self):
+        # Step 1: get the genes
+        oi_parents = list(self._oi_strat.keys())
+        # Step 2: update the strategy dict with unique new children
+        while len(self._oi_strat) < self._oi_ngene:
+            # Choose two parents - weighted selection
+            o1, o2 = tuple(random.choices(oi_parents, cum_weights=self._oi_weights, k=2))
+            # Random uniform crossover
+            x = random.randrange(self._oi_len)
+            o = o1[:x] + o2[x:]
+            # Random uniform mutate
+            if random.random() < self._mutate_p:
+                z = random.randrange(self._oi_len)
+                o = o[:z] + str(random.randrange(3)) + o[z+1:]
+            # Check if new child differs from current parents
+            if o not in oi_parents:
+                # Update child action & strategy
+                y = random.random()
+                if y < 0.333: # choose parent 1
+                    action = self._oi_strat[o1]['action']
+                    strategy = self._oi_strat[o1]['strategy']
+                elif y > 0.667: # choose parent 2
+                    action = self._oi_strat[o2]['action']
+                    strategy = self._oi_strat[o2]['strategy']
+                else: # average parent 1 & 2
+                    strategy = int((self._oi_strat[o1]['strategy'] + self._oi_strat[o2]['strategy']) / 2)
+                    action = '1' if strategy > 0 else '0'
+                    action += format(abs(strategy), 'b').rjust(5, '0')
+                # Update accuracy - weighted average
+                a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
+                a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
+                accuracy = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                oi_parents.append(o)
+            
+    def _arr_genes_ws(self):
+        # Step 1: get the genes
+        arr_parents = list(self._arr_strat.keys())
+        # Step 2: update the strategy dict with unique new children
+        while len(self._arr_strat) < self._arr_ngene:
+            # Choose two parents - weighted selection
+            r1, r2 = tuple(random.choices(arr_parents, cum_weights=self._arr_weights, k=2))
+            # Random uniform crossover
+            x = random.randrange(self._arr_len)
+            r = r1[:x] + r2[x:]
+            # Random uniform mutate
+            if random.random() < self._mutate_p:
+                z = random.randrange(self._arr_len)
+                r = r[:z] + str(random.randrange(3)) + r[z+1:]
+            # Check if new child differs from current parents
+            if r not in arr_parents:
+                # Update child action & strategy
+                y = random.random()
+                if y < 0.333: # choose parent 1
+                    action = self._arr_strat[r1]['action']
+                    strategy = self._arr_strat[r1]['strategy']
+                elif y > 0.667: # choose parent 2
+                    action = self._arr_strat[r2]['action']
+                    strategy = self._arr_strat[r2]['strategy']
+                else: # average parent 1 & 2
+                    strategy = int((self._arr_strat[r1]['strategy'] + self._arr_strat[r2]['strategy']) / 2)
+                    action = format(strategy, 'b').rjust(5, '0')
+                # Update accuracy - weighted average
+                a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
+                a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
+                accuracy = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
+                arr_parents.append(r)
+            
+    def _spr_genes_ws(self):
+        # Step 1: get the genes
+        spr_parents = list(self._spradj_strat.keys())
+        # Step 2: update the strategy dict with unique new children
+        while len(self._spradj_strat) < self._spr_ngene:
+            # Choose two parents - weighted selection
+            s1, s2 = tuple(random.choices(spr_parents, cum_weights=self._spradj_weights, k=2))
+            # Random uniform crossover
+            x = random.randrange(self._spr_len)
+            s = s1[:x] + s2[x:]
+            # Random uniform mutate
+            if random.random() < self._mutate_p:
+                z = random.randrange(self._spr_len)
+                s = s[:z] + str(random.randrange(3)) + s[z+1:]
+            # Check if new child differs from current parents
+            if s not in spr_parents:
+                # Update child action & strategy
+                y = random.random()
+                if y < 0.333: # choose parent 1
+                    action = self._spradj_strat[s1]['action']
+                    strategy = self._spradj_strat[s1]['strategy']
+                elif y > 0.667: # choose parent 2
+                    action = self._spradj_strat[s2]['action']
+                    strategy = self._spradj_strat[s2]['strategy']
+                else: # average parent 1 & 2
+                    strategy = int((self._spradj_strat[s1]['strategy'] + self._spradj_strat[s2]['strategy']) / 2)
+                    action = '1' if strategy > 0 else '0'
+                    action += format(abs(strategy), 'b').rjust(3, '0')
+                # Update accuracy - weighted average
+                a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
+                a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
+                rr_spread = [a0, a1, a0/a1]
+                # Add new child to strategy dict
+                self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
+                spr_parents.append(s)
+    
+    def _genetics_ws(self):
+        self._find_winners()
+        self._oi_genes_ws()
+        self._arr_genes_ws()
+        self._spr_genes_ws()
 
 class PennyJumper(ZITrader):
     '''

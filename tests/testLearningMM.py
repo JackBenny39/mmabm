@@ -653,7 +653,7 @@ class TestTrader(unittest.TestCase):
             self.assertTrue(j in spr_rr)
         self.assertEqual(min(spr_rr), 5)
         self.assertEqual(max(spr_rr), 24)
-        
+    @unittest.skip('For now')    
     def test_uniform_selection(self):
         for j, k in enumerate(self.l1._oi_strat.keys()):
             self.l1._oi_strat[k]['accuracy'][2] = -j
@@ -663,7 +663,7 @@ class TestTrader(unittest.TestCase):
             self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.l1._find_winners()
         self.l1._uniform_selection()
-        
+    @unittest.skip('For now')    
     def test_weighted_selection(self):
         for j, k in enumerate(self.l1._oi_strat.keys()):
             self.l1._oi_strat[k]['accuracy'][2] = -j
@@ -673,7 +673,54 @@ class TestTrader(unittest.TestCase):
             self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.l1._find_winners()
         self.l1._weighted_selection()
-    @unittest.skip('For now')    
-    def test_genetics(self):
-        self.l1._genetics()
+    
+    ''' Test before and after length of strategy dict
+    The genetic manipulations are straightforward but run inline, making
+    the length of the new strategy dict the only testable outcome
+    '''
+      
+    def test_oi_genes_us(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][0] = -j
+            self.l1._oi_strat[k]['accuracy'][1] = 1
+            self.l1._oi_strat[k]['accuracy'][2] = -j
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_keep)
+        self.l1._oi_genes_us()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        #for k in self.l1._oi_strat.keys():
+            #if self.l1._oi_strat[k]['accuracy'][1] != 1:
+                #print(self.l1._oi_strat[k])
+                
+    def test_arr_genes_us(self):
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][0] = -j
+            self.l1._arr_strat[k]['accuracy'][1] = 1
+            self.l1._arr_strat[k]['accuracy'][2] = -j
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_keep)
+        self.l1._arr_genes_us()
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        #for k in self.l1._arr_strat.keys():
+            #if self.l1._arr_strat[k]['accuracy'][1] != 1:
+                #print(self.l1._arr_strat[k])
+                
+    def test_spr_genes_us(self):
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][0] = j
+            self.l1._spradj_strat[k]['rr_spread'][1] = 1
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spradj_keep)
+        self.l1._spr_genes_us()
+        self.l1._find_winners()
+        self.l1._spr_genes_us()
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        for k in self.l1._spradj_strat.keys():
+            if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
+                print(self.l1._spradj_strat[k])
+        
         
