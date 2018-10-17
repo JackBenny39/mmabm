@@ -623,7 +623,7 @@ class MarketMakerL():
                 z = random.randrange(self._oi_len)
                 o = o[:z] + str(random.randrange(3)) + o[z+1:]
             # Check if new child differs from current parents
-            if o not in oi_parents:
+            if o not in list(self._oi_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -642,7 +642,6 @@ class MarketMakerL():
                 accuracy = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-                oi_parents.append(o)
             
     def _arr_genes_us(self):
         # Step 1: get the genes
@@ -659,7 +658,7 @@ class MarketMakerL():
                 z = random.randrange(self._arr_len)
                 r = r[:z] + str(random.randrange(3)) + r[z+1:]
             # Check if new child differs from current parents
-            if r not in arr_parents:
+            if r not in list(self._arr_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -677,7 +676,6 @@ class MarketMakerL():
                 accuracy = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-                arr_parents.append(r)
             
     def _spr_genes_us(self):
         # Step 1: get the genes
@@ -694,7 +692,7 @@ class MarketMakerL():
                 z = random.randrange(self._spr_len)
                 s = s[:z] + str(random.randrange(3)) + s[z+1:]
             # Check if new child differs from current parents
-            if s not in spr_parents:
+            if s not in list(self._spradj_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -713,7 +711,6 @@ class MarketMakerL():
                 rr_spread = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
-                spr_parents.append(s)
     
     def _genetics_us(self):
         self._find_winners()
@@ -736,7 +733,7 @@ class MarketMakerL():
                 z = random.randrange(self._oi_len)
                 o = o[:z] + str(random.randrange(3)) + o[z+1:]
             # Check if new child differs from current parents
-            if o not in oi_parents:
+            if o not in list(self._oi_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -755,7 +752,6 @@ class MarketMakerL():
                 accuracy = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-                oi_parents.append(o)
             
     def _arr_genes_ws(self):
         # Step 1: get the genes
@@ -772,7 +768,7 @@ class MarketMakerL():
                 z = random.randrange(self._arr_len)
                 r = r[:z] + str(random.randrange(3)) + r[z+1:]
             # Check if new child differs from current parents
-            if r not in arr_parents:
+            if r not in list(self._arr_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -790,7 +786,6 @@ class MarketMakerL():
                 accuracy = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-                arr_parents.append(r)
             
     def _spr_genes_ws(self):
         # Step 1: get the genes
@@ -807,7 +802,7 @@ class MarketMakerL():
                 z = random.randrange(self._spr_len)
                 s = s[:z] + str(random.randrange(3)) + s[z+1:]
             # Check if new child differs from current parents
-            if s not in spr_parents:
+            if s not in list(self._spradj_strat.keys()):
                 # Update child action & strategy
                 y = random.random()
                 if y < 0.333: # choose parent 1
@@ -826,7 +821,6 @@ class MarketMakerL():
                 rr_spread = [a0, a1, a0/a1]
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
-                spr_parents.append(s)
     
     def _genetics_ws(self):
         self._find_winners()

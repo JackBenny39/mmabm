@@ -719,6 +719,48 @@ class TestTrader(unittest.TestCase):
         self.l1._find_winners()
         self.l1._spr_genes_us()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        #for k in self.l1._spradj_strat.keys():
+            #if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
+                #print(self.l1._spradj_strat[k])
+                
+    def test_oi_genes_ws(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][0] = -j
+            self.l1._oi_strat[k]['accuracy'][1] = 1
+            self.l1._oi_strat[k]['accuracy'][2] = -j
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_keep)
+        self.l1._oi_genes_ws()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        #for k in self.l1._oi_strat.keys():
+            #if self.l1._oi_strat[k]['accuracy'][1] != 1:
+                #print(self.l1._oi_strat[k])
+                
+    def test_arr_genes_ws(self):
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][0] = -j
+            self.l1._arr_strat[k]['accuracy'][1] = 1
+            self.l1._arr_strat[k]['accuracy'][2] = -j
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_keep)
+        self.l1._arr_genes_ws()
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        #for k in self.l1._arr_strat.keys():
+            #if self.l1._arr_strat[k]['accuracy'][1] != 1:
+                #print(self.l1._arr_strat[k])
+                
+    def test_spr_genes_ws(self):
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][0] = j
+            self.l1._spradj_strat[k]['rr_spread'][1] = 1
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        self.l1._find_winners()
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spradj_keep)
+        self.l1._spr_genes_ws()
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
         for k in self.l1._spradj_strat.keys():
             if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
                 print(self.l1._spradj_strat[k])
