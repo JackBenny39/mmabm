@@ -227,13 +227,13 @@ class MarketMakerL():
         self._last_sell_prices = []
         
         self._oi_strat, self._oi_len, self._oi_ngene = self._make_oi_strat2(geneset[0])
-        self._oi_keep = int(keep_pct * len(self._oi_strat))
+        self._oi_keep = int(keep_pct * self._oi_ngene)
         self._oi_weights = self._make_weights(self._oi_keep)
         self._arr_strat, self._arr_len, self._arr_ngene = self._make_arr_strat2(geneset[1])
-        self._arr_keep = int(keep_pct * len(self._arr_strat))
+        self._arr_keep = int(keep_pct * self._arr_ngene)
         self._arr_weights = self._make_weights(self._arr_keep)
         self._spradj_strat, self._spr_len, self._spr_ngene = self._make_spread_strat2(geneset[2])
-        self._spradj_keep = int(keep_pct * len(self._spradj_strat))
+        self._spradj_keep = int(keep_pct * self._spr_ngene)
         self._spradj_weights = self._make_weights(self._spradj_keep)
         
         self._current_oi_strat = []
