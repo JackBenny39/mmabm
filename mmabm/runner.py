@@ -6,6 +6,7 @@ import pandas as pd
 
 import mmabm.orderbook as orderbook
 import mmabm.trader as trader
+import mmabm.learner as learner
 
 from mmabm.shared import Side, OType, TType
 
@@ -38,8 +39,7 @@ class Runner:
             self.alpha_pj = kwargs['AlphaPJ']
         self.marketmaker = kwargs.pop('MarketMaker')
         if self.marketmaker:
-            self.marketmakers = self.buildMarketMakers(kwargs['MMMaxQ'], kwargs['NumMMs'], kwargs['MMQuotes'], 
-                                                       kwargs['MMQuoteRange'], kwargs['MMDelta'])
+            self.marketmakers = self.buildMarketMakers(kwargs['NumMMs'], kwargs['arrInt'])
         self.traders = self.makeAll()
         self.q_take, self.lambda_t = self.makeQTake(kwargs['QTake'], kwargs['Lambda0'], kwargs['WhiteNoise'], kwargs['CLambda'])
         self.seedOrderbook()
@@ -97,14 +97,89 @@ class Runner:
         self.liquidity_providers.update({4000: jumper})
         return jumper
 
-    def buildMarketMakers(self, mMMaxQ, numMMs, mMQuotes, mMQuoteRange, mMDelta):
+    def buildMarketMakers(self, numMMs, arrInt):
         ''' MM id starts with 3
         '''
         marketmaker_ids = [3000 + i for i in range(numMMs)]
-        marketmaker_list = [trader.MarketMaker(p, mMMaxQ, mMDelta, mMQuotes, mMQuoteRange) for p in marketmaker_ids]
+        marketmaker_list = [self.makeMML(p) for p in marketmaker_ids]
         self.liquidity_providers.update(dict(zip(marketmaker_ids, marketmaker_list)))
-        t_delta_m = np.array([m.quantity for m in marketmaker_list])
+        t_delta_m = np.array([arrInt] * len(marketmaker_ids))
         return np.vstack([np.array(marketmaker_list), t_delta_m]).T
+    
+    def makeMML(self, tid):
+        '''
+        Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
+        arrival count: 16 bits, 8 for previous period and 8 for the previous 5 periods:
+            previous period -> one bit each for > 0, 1, 2, 3, 4, 6, 8, 12
+            previous 5 periods -> one bit each for >  0, 1, 2, 4, 8, 16, 32, 64
+        order imbalance: 24 bits, 12 for previous period and 12 for previous 5 periods:
+            previous period -> one bit each for < -8, -4, -3, -2, -1, 0 and > 0, 1, 2, 3, 4, 8
+            previous 5 periods -> one bit each for < -16, -8, -6, -4, -2, 0 and > 0, 2, 4, 6, 8, 16
+            
+        The market maker has a set of predictors (condition/forecast rules) where the condition
+        matches the market descriptors (i.e., the market state) and the forecasts are used as inputs
+        to the market maker decision making.
+        Each market condition is a bit string that coincides with market descriptors with the
+        additional possibility of "don't care" (==2). 
+        Each market condition has an associated forecast
+        arrival count: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        order imbalance: 6 bits -> lhs bit is +1/-1 and 2^5 - 1 = 31 for a range of -31 - +31
+        
+        Each market maker receives 100 genes for each of the two sets of market descriptors and
+        25 genes for the arrival forecast action rule.
+        Examples:
+        arrival count: 1111100011111100 -> >4 for previous period and >8 for previous 5 periods
+        arrival count gene -> 2222102222221122: 01010 
+            this gene matches on the "do care" (0 or 1) bits and has "don't care" for the remaining
+            bits. It forecasts an arrival count of 10 (0*16 + 1*8 + 0*4 + 1*2 + 0*1).
+        order imbalance: 011111000000011111000000 - < -4 for previous period and < -8 for previous
+        5 periods
+        order imbalance gene: 222221022222222122222012: 010010
+            this gene does not match the market state in position 23 and forecasts an order
+            imbalance of +18 (+1*(1*16 + 0*8 + 0*4 + 1*2 + 0*1))
+            
+        The arrival count forecast acts as a condition/action rule where the condition matches the
+        arrival count forecast and the action adjusts the bid and ask prices:
+        arrival count forecast: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        action: 4 bits  -> lhs bit is +1/-1 and 2^3 - 1 = 7 for a range of -7 - +7
+        Example:
+        arrival count forecast -> 01010
+        arrival count gene -> 02210: 0010
+            this gene matches the arrival count forecast and adjusts the bid (or ask) by (+1*(0*4 + 1*2 + 0*1) = +2.
+        '''
+        gene_n1 = 100
+        gene_n2 = 25
+        arr_cond_n = 16
+        oi_cond_n = 24
+        spr_cond_n = 5
+        arr_fcst_n = 5
+        oi_fcst_n = 6
+        spr_adj_n = 4
+        probs = [0.05, 0.05, 0.9]
+        
+        arr_genes = {}
+        oi_genes = {}
+        spread_genes = {}
+        genes = tuple([oi_genes, arr_genes, spread_genes])
+        while len(arr_genes) < gene_n1:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
+            arr_genes.update({gk: gv})
+        while len(oi_genes) < gene_n1:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
+            oi_genes.update({gk: gv})
+        while len(spread_genes) < gene_n2:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), spr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), spr_adj_n))
+            spread_genes.update({gk: gv})
+        # Eventually move these parameters to kwargs
+        maxq = 5
+        a = b = 1
+        c = -1
+        keeper = 0.8
+        mutate_pct = 0.03
+        return learner.MarketMakerL(tid, maxq, a, b, c, genes, keeper, mutate_pct)
     
     def makeQTake(self, q_take, lambda_0, wn, c_lambda):
         if q_take:
@@ -272,7 +347,7 @@ if __name__ == '__main__':
                 'Taker': True, 'numTakers': 50, 'takerMaxQ': 1, 'tMu': 0.001,
                 'InformedTrader': False, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
                 'PennyJumper': False, 'AlphaPJ': 0.05,
-                'MarketMaker': True, 'NumMMs': 1, 'MMMaxQ': 1, 'MMQuotes': 12, 'MMQuoteRange': 60, 'MMDelta': 0.025,
+                'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
     for j in range(51, 61):
