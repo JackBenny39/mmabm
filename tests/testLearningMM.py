@@ -5,7 +5,7 @@ import numpy as np
 
 from mmabm.shared import Side, OType
 
-from mmabm.trader import MarketMakerL
+from mmabm.learner import MarketMakerL
 
 
 class TestTrader(unittest.TestCase):
