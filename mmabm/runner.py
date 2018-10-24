@@ -45,13 +45,15 @@ class Runner:
         self.seedOrderbook()
         if self.provider:
             self.makeSetup(prime1, kwargs['Lambda0'])
-        if self.pj:
-            self.runMcsPJ(prime1, write_interval)
         else:
-            self.runMcs(prime1, write_interval)
-        self.exchange.trade_book_to_h5(h5filename)
-        self.qTakeToh5()
-        self.mmProfitabilityToh5()
+            self.prime_MML(1, 1002000, 997995)
+        #if self.pj:
+        #    self.runMcsPJ(prime1, write_interval)
+        #else:
+        #    self.runMcs(prime1, write_interval)
+        #self.exchange.trade_book_to_h5(h5filename)
+        #self.qTakeToh5()
+        #self.mmProfitabilityToh5()
                   
     def buildProviders(self, numProviders, providerMaxQ, pAlpha, pDelta):
         ''' Providers id starts with 1
@@ -231,8 +233,18 @@ class Runner:
             for p in self.provider_array:
                 if not current_time % p[1]:
                     self.exchange.process_order(p[0].process_signal(current_time, top_of_book, self.q_provide, -lambda0))
-                    top_of_book = self.exchange.report_top_of_book(current_time)    
-    
+                    top_of_book = self.exchange.report_top_of_book(current_time)
+        ask = top_of_book['best_ask']
+        bid = top_of_book['best_bid']
+        self.prime_MML(prime1-1, ask, bid)
+        
+    def prime_MML(self, step, ask, bid):
+        for m in self.marketmakers:
+            m[0].seed_book(step, ask, bid)
+            for q in m[0].quote_collector:
+                self.exchange.process_order(q)
+        self.exchange.report_top_of_book(step)
+
     def doCancels(self, trader):
         for c in trader.cancel_collector:
             self.exchange.process_order(c)
@@ -350,7 +362,7 @@ if __name__ == '__main__':
                 'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
-    for j in range(51, 61):
+    for j in range(51, 52):
         random.seed(j)
         np.random.seed(j)
     
@@ -361,5 +373,7 @@ if __name__ == '__main__':
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
+        for m in market1.marketmakers:
+            print(m[0]._oi_strat)
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
