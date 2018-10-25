@@ -4,19 +4,18 @@ import unittest
 import numpy as np
 
 from mmabm.shared import Side, OType
-from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader, MarketMakerL
+from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader
 
 
 class TestTrader(unittest.TestCase):
     
     def setUp(self):
         self.z1 = ZITrader(1, 5)
-        self.p1 = Provider(1001, 1, 0.025)
-        self.l1 = self._makeMML(3001)
-        self.m1 = MarketMaker(3001, 1, 0.05, 12, 60)
+        self.p1 = Provider(1001, 1, 0.025, 0.0375)
+        self.m1 = MarketMaker(3001, 1, 0.005, 0.05, 12, 60)
         self.j1 = PennyJumper(4001, 1, 5)
-        self.t1 = Taker(2001, 1)
-        self.i1 = InformedTrader(5001, 1)
+        self.t1 = Taker(2001, 1, 0.001)
+        self.i1 = InformedTrader(5001, 1, 250, 1, 20, 100000)
         
         self.q1 = {'order_id': 1, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 125}
@@ -38,84 +37,6 @@ class TestTrader(unittest.TestCase):
                    'price': 129}
         self.q10 = {'order_id': 10, 'timestamp': 10, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 130}
-    
-    def _makeMML(self, tid):
-        '''
-        Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
-        arrival count: 16 bits, 8 for previous period and 8 for the previous 5 periods:
-            previous period -> one bit each for > 0, 1, 2, 3, 4, 6, 8, 12
-            previous 5 periods -> one bit each for >  0, 1, 2, 4, 8, 16, 32, 64
-        order imbalance: 24 bits, 12 for previous period and 12 for previous 5 periods:
-            previous period -> one bit each for < -8, -4, -3, -2, -1, 0 and > 0, 1, 2, 3, 4, 8
-            previous 5 periods -> one bit each for < -16, -8, -6, -4, -2, 0 and > 0, 2, 4, 6, 8, 16
-            
-        The market maker has a set of predictors (condition/forecast rules) where the condition
-        matches the market descriptors (i.e., the market state) and the forecasts are used as inputs
-        to the market maker decision making.
-        Each market condition is a bit string that coincides with market descriptors with the
-        additional possibility of "don't care" (==2). 
-        Each market condition has an associated forecast
-        arrival count: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
-        order imbalance: 6 bits -> lhs bit is +1/-1 and 2^5 - 1 = 31 for a range of -31 - +31
-        
-        Each market maker receives 100 genes for each of the two sets of market descriptors and
-        25 genes for the arrival forecast action rule.
-        Examples:
-        arrival count: 1111100011111100 -> >4 for previous period and >8 for previous 5 periods
-        arrival count gene -> 2222102222221122: 01010 
-            this gene matches on the "do care" (0 or 1) bits and has "don't care" for the remaining
-            bits. It forecasts an arrival count of 10 (0*16 + 1*8 + 0*4 + 1*2 + 0*1).
-        order imbalance: 011111000000011111000000 - < -4 for previous period and < -8 for previous
-        5 periods
-        order imbalance gene: 222221022222222122222012: 010010
-            this gene does not match the market state in position 23 and forecasts an order
-            imbalance of +18 (+1*(1*16 + 0*8 + 0*4 + 1*2 + 0*1))
-            
-        The arrival count forecast acts as a condition/action rule where the condition matches the
-        arrival count forecast and the action adjusts the bid and ask prices:
-        arrival count forecast: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
-        action: 4 bits  -> lhs bit is +1/-1 and 2^3 - 1 = 7 for a range of -7 - +7
-        Example:
-        arrival count forecast -> 01010
-        arrival count gene -> 02210: 0010
-            this gene matches the arrival count forecast and adjusts the bid (or ask) by (+1*(0*4 + 1*2 + 0*1) = +2.
-        '''
-        random.seed(39)
-        np.random.seed(39)
-        gene_n1 = 100
-        gene_n2 = 25
-        arr_cond_n = 16
-        oi_cond_n = 24
-        bidp_cond_n = 5
-        askp_cond_n = 5
-        arr_fcst_n = 5
-        oi_fcst_n = 6
-        bidp_adj_n = 4
-        askp_adj_n = 4
-        probs = [0.05, 0.05, 0.9]
-        
-        arr_genes = {}
-        oi_genes = {}
-        bidp_genes = {}
-        askp_genes = {}
-        genes = tuple([oi_genes, arr_genes, askp_genes, bidp_genes])
-        while len(arr_genes) < gene_n1:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
-            arr_genes.update({gk: gv})
-        while len(oi_genes) < gene_n1:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
-            oi_genes.update({gk: gv})
-        while len(bidp_genes) < gene_n2:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), bidp_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), bidp_adj_n))
-            bidp_genes.update({gk: gv})
-        while len(askp_genes) < gene_n2:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), askp_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), askp_adj_n))
-            askp_genes.update({gk: gv})
-        return MarketMakerL(tid, 1, 1, 1, genes)
         
 # ZITrader tests
 

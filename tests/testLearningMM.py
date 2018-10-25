@@ -11,7 +11,7 @@ from mmabm.learner import MarketMakerL
 class TestTrader(unittest.TestCase):
     
     def setUp(self):
-        self.l1 = self._makeMML(3001)
+        self.l1 = self._makeMML(3001, 1)
         
         self.q1 = {'order_id': 1, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 125}
@@ -33,7 +33,7 @@ class TestTrader(unittest.TestCase):
         self.q4_sell = {'order_id': 2, 'timestamp': 5, 'type': OType.ADD, 'quantity': 3, 'side': Side.ASK,
                         'price': 55}
         
-    def _makeMML(self, tid):
+    def _makeMML(self, tid, arrInt):
         '''
         Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
         arrival count: 16 bits, 8 for previous period and 8 for the previous 5 periods:
@@ -107,7 +107,7 @@ class TestTrader(unittest.TestCase):
         c = -1
         keeper = 0.8
         mutate_pct = 0.03
-        return MarketMakerL(tid, maxq, a, b, c, genes, keeper, mutate_pct)
+        return MarketMakerL(tid, maxq, arrInt, a, b, c, genes, keeper, mutate_pct)
     
     ''' Strategy Construction Tests '''    
     def test_make_oi_strat2(self):
@@ -764,5 +764,3 @@ class TestTrader(unittest.TestCase):
         for k in self.l1._spradj_strat.keys():
             if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
                 print(self.l1._spradj_strat[k])
-        
-        

@@ -25,9 +25,10 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, maxq, a, b, c, geneset, keep_pct, m):
+    def __init__(self, name, maxq, arrInt, a, b, c, geneset, keep_pct, m):
         self.trader_id = name # trader id
         self._maxq = maxq
+        self.arrInt = arrInt
         self._a = a
         self._b = b
         self._c = c
