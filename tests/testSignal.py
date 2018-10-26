@@ -15,3 +15,11 @@ class TestTrader(unittest.TestCase):
         print(self.s1.oib_str)
         self.s1.make_oib_signal(step)
         print(self.s1.oib_str)
+        
+    def test_make_arr_signal(self):
+        self.s1.arrv5 = [1, 3, 5, 0, 7]
+        self.s1.arrv = 2
+        step = 24
+        print(self.s1.arr_str)
+        self.s1.make_arr_signal(step)
+        print(self.s1.arr_str)
