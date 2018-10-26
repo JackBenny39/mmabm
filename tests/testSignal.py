@@ -23,3 +23,18 @@ class TestTrader(unittest.TestCase):
         print(self.s1.arr_str)
         self.s1.make_arr_signal(step)
         print(self.s1.arr_str)
+        
+    def test_make_mid_signal(self):
+        self.s1.ret10 = [1, .5, -.2, .4, -1, .2, .6, -.2, -.4, -.7]
+        self.s1.midl1 = 100
+        ask = 104
+        bid = 102
+        step = 25
+        print(self.s1.ret10)
+        self.s1.make_mid_signal(step, bid, ask)
+        print(self.s1.ret10)
+        print(self.s1.mid, self.s1.midl1)
+        
+    def test_make_vol_signal(self):
+        self.s1.ret10 = [1, .5, -.2, .4, -1, .2, .6, -.2, -.4, -.7]
+        print(self.s1.make_vol_signal())
