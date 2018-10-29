@@ -4,9 +4,10 @@ import time
 import numpy as np
 import pandas as pd
 
-import mmabm.orderbook as orderbook
-import mmabm.trader as trader
 import mmabm.learner as learner
+import mmabm.orderbook as orderbook
+import mmabm.signal as signal
+import mmabm.trader as trader
 
 from mmabm.shared import Side, OType, TType
 
@@ -15,6 +16,7 @@ class Runner:
     
     def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
+        self.signal = signal.Signal()
         self.h5filename = h5filename
         self.mpi = mpi
         self.run_steps = run_steps + 1
@@ -233,6 +235,12 @@ class Runner:
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
+            
+    def confirmTradesMM(self, mm):
+        for c in self.exchange.confirm_trade_collector:
+            contra_side = self.liquidity_providers[c['trader']]
+            contra_side.confirm_trade_local(c)
+            mm.confirm_cross(c)
     
     def runMcs(self, prime1, write_interval):
         top_of_book = self.exchange.report_top_of_book(prime1)
@@ -249,14 +257,16 @@ class Runner:
                         top_of_book = self.exchange.report_top_of_book(current_time)
                 elif t.trader_type == TType.MarketMaker:
                     if not current_time % t.arrInt:
-                        t.process_signal(current_time, top_of_book, self.q_provide)
+                        t.process_signal(current_time, self.signal.make_signal(current_time, top_of_book['best_bid'], top_of_book['best_ask']))
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
                         for q in t.quote_collector:
                             self.exchange.process_order(q)
+                            if self.exchange.traded:
+                                self.confirmTradesMM(t)
+                                t.cumulate_cashflow(current_time)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                    t.bulk_cancel(current_time)
-                    if t.cancel_collector:
-                        self.doCancels(t)
-                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        self.signal.reset_current()
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))

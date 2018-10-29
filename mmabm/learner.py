@@ -181,15 +181,46 @@ class MarketMakerL():
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
         '''Modify _cash_flow and _delta_inv; update the local_book'''
-        if confirm['side'] == Side.BID:
-            self._last_buy_prices.append(confirm['price'])
-            self._cash_flow -= confirm['price']*confirm['quantity']
-            self._delta_inv += confirm['quantity']
+        price = confirm['price']
+        side = confirm['side']
+        quantity = confirm['quantity']
+        if side == Side.BID:
+            self._last_buy_prices.append(price)
+            self._cash_flow -= price*quantity
+            self._delta_inv += quantity
         else:
-            self._last_sell_prices.append(confirm['price'])
-            self._cash_flow += confirm['price']*confirm['quantity']
-            self._delta_inv -= confirm['quantity']
-        self._modify_order(confirm['side'], confirm['quantity'], confirm['order_id'], confirm['price'])
+            self._last_sell_prices.append(price)
+            self._cash_flow += price*quantity
+            self._delta_inv -= quantity
+        self._modify_order(side, quantity, confirm['order_id'], price)
+        self.cumulate_cashflow(confirm['timestamp'])
+        
+    def confirm_cross(self, confirm):
+        ''' Could modify orderbook._confirm_trade to include incoming order_id, but:
+        1. I want to avoid adding to the orderbook workload unnecessarily
+        2. It is possible to obtain the order_id locally because it is guaranteed unique for a specific side/price
+        During process_order, mm posts the order locally, then discovers (via a trade confirm) it has crossed the book.
+        The trade must be recognized by adjusting cash flow and inventory 
+        and then removing the order from the local book
+        Eventually, the learning MM will not do this very frequently - if at all
+        '''
+        price = confirm['price']
+        side = confirm['side']
+        quantity = confirm['quantity']
+        if side == Side.BID: # confirm side == BID means MM crossed (sold) with an ask order
+            self._cash_flow += price*quantity
+            self._delta_inv -= quantity
+            mm_order = self._ask_book[price]['orders'][0]
+            self._modify_order(Side.ASK, quantity, mm_order, price)
+        else: # confirm side == ASK means MM  crossed (bought) with a buy order
+            self._cash_flow -= price*quantity
+            self._delta_inv += quantity
+            mm_order = self._bid_book[price]['orders'][0]
+            self._modify_order(Side.BID, quantity, mm_order, price)
+        
+    def cumulate_cashflow(self, timestamp):
+        self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': timestamp, 'cash_flow': self._cash_flow,
+                                         'position': self._position})
     
     ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
