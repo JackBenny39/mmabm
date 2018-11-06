@@ -41,6 +41,8 @@ class MarketMakerL():
         self.quote_collector = []
         self.cancel_collector = []
         
+        self._bid = 0
+        self._ask = 0
         self._mid = 0
         self._delta_inv = 0
         self._cash_flow = 0
@@ -193,7 +195,6 @@ class MarketMakerL():
             self._cash_flow += price*quantity
             self._delta_inv -= quantity
         self._modify_order(side, quantity, confirm['order_id'], price)
-        self.cumulate_cashflow(confirm['timestamp'])
         
     def confirm_cross(self, confirm):
         ''' Could modify orderbook._confirm_trade to include incoming order_id, but:
@@ -210,17 +211,17 @@ class MarketMakerL():
         if side == Side.BID: # confirm side == BID means MM crossed (sold) with an ask order
             self._cash_flow += price*quantity
             self._delta_inv -= quantity
-            mm_order = self._ask_book[price]['orders'][0]
+            mm_order = self._ask_book[price]['order_ids'][0]
             self._modify_order(Side.ASK, quantity, mm_order, price)
         else: # confirm side == ASK means MM  crossed (bought) with a buy order
             self._cash_flow -= price*quantity
             self._delta_inv += quantity
-            mm_order = self._bid_book[price]['orders'][0]
+            mm_order = self._bid_book[price]['order_ids'][0]
             self._modify_order(Side.BID, quantity, mm_order, price)
         
-    def cumulate_cashflow(self, timestamp):
-        self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': timestamp, 'cash_flow': self._cash_flow,
-                                         'position': self._position})
+    def cumulate_cashflow(self, step):
+        self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
+                                         'delta_inv': self._delta_inv})
     
     ''' Make Orders '''                
     def _make_add_quote(self, time, side, price, quantity):
@@ -299,34 +300,44 @@ class MarketMakerL():
         self._match_arr_strat2(arr_signal)
         self._match_spread_strat(self._arr_strat[self._current_arr_strat]['action'])
         spr_adj = sum([self._spradj_strat[c]['strategy'] for c in self._current_spradj_strat])/len(self._current_spradj_strat)
-        ask = self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2)
-        bid = self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2)
-        while ask - bid <= 0:
+        self._ask = self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2)
+        self._bid = self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2)
+        while self._ask - self._bid <= 0:
             if random.random() > 0.5:
-                ask+=1
+                self._ask += 1
             else:
-                bid-=1
-        return int(bid), int(ask)
+                self._bid -= 1
     
-    def _update_ask_book(self, step, ask):
+    def _process_cancels(self, step):
+        self.cancel_collector.clear()
         best_ask = self._ask_book_prices[0]
-        if ask < best_ask:
-            for p in range(ask, best_ask):
-                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
-                self.quote_collector.append(q)
-                self._add_order(q)
-            if self._ask_book[best_ask]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
-                self.quote_collector.append(q)
-                self._add_order(q)
-        elif ask > best_ask:
-            for p in range(best_ask, ask):
+        if self._ask > best_ask:
+            for p in range(best_ask, self._ask):
                 self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
             for c in self.cancel_collector:
                 self._remove_order(c['side'], c['price'], c['order_id'])
+        best_bid = self._bid_book_prices[-1]
+        if self._bid < best_bid:
+            for p in range(self._bid + 1, best_bid + 1):
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+            for c in self.cancel_collector:
+                self._remove_order(c['side'], c['price'], c['order_id'])
+    
+    def _update_ask_book(self, step, tob_bid):
+        target_ask = max(self._ask, tob_bid + 1)
+        local_best_ask = self._ask_book_prices[0]
+        if target_ask < local_best_ask:
+            for p in range(target_ask, local_best_ask):
+                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
+                self.quote_collector.append(q)
+                self._add_order(q)
+            if self._ask_book[local_best_ask]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+                self.quote_collector.append(q)
+                self._add_order(q)
         else:
-            if self._ask_book[best_ask]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.ASK, best_ask, self._maxq - self._ask_book[best_ask]['size'])
+            if self._ask_book[local_best_ask]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._ask_book_prices) < 20:
@@ -340,25 +351,21 @@ class MarketMakerL():
             for c in self.cancel_collector:
                 self._remove_order(c['side'], c['price'], c['order_id'])
                 
-    def _update_bid_book(self, step, bid):
-        best_bid = self._bid_book_prices[-1]
-        if bid > best_bid:
-            for p in range(best_bid+1, bid+1):
+    def _update_bid_book(self, step, tob_ask):
+        target_bid = min(self._bid, tob_ask - 1)
+        local_best_bid = self._bid_book_prices[-1]
+        if target_bid > local_best_bid:
+            for p in range(local_best_bid+1, target_bid+1):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
-            if self._bid_book[best_bid]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+            if self._bid_book[local_best_bid]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
                 self.quote_collector.append(q)
                 self._add_order(q)
-        elif bid < best_bid:
-            for p in range(bid+1, best_bid+1):
-                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
-            for c in self.cancel_collector:
-                self._remove_order(c['side'], c['price'], c['order_id'])
         else:
-            if self._bid_book[best_bid]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.BID, best_bid, self._maxq - self._bid_book[best_bid]['size'])
+            if self._bid_book[local_best_bid]['size'] < self._maxq:
+                q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._bid_book_prices) < 20:
@@ -376,12 +383,14 @@ class MarketMakerL():
         q = self._make_add_quote(step, Side.BID, bid, self._maxq)
         self.quote_collector.append(q)
         self._add_order(q)
+        self._bid = bid
         q = self._make_add_quote(step, Side.ASK, ask, self._maxq)
         self.quote_collector.append(q)
         self._add_order(q)
+        self._ask = ask
         self._mid = (ask+bid)/2
         
-    def process_signal(self, step, signal):
+    def process_signal1(self, step, signal):
         '''
         The signal is a dict with features of the market state: 
             arrival count: 16 bits
@@ -402,23 +411,27 @@ class MarketMakerL():
         self._update_arr_acc(signal['arrv'])
         self._update_rspr(signal['mid'])
         
-        # clear the collectors
-        self.quote_collector.clear()
-        self.cancel_collector.clear()
-        
         # compute new midpoint
         self._update_midpoint(signal['oib'])
         
-        # compute new spread
-        bid, ask = self._make_spread(signal['arr'], signal['vol'])
+        # compute desired spread
+        self._make_spread(signal['arr'], signal['vol'])
         
-        # cancel old orders or add new orders to make depth and/or establish new inside spread
-        self._update_ask_book(step, ask)
-        self._update_bid_book(step, bid)
+        # cancel old quotes
+        self._process_cancels(step)
+        
+    def process_signal2(self, step, tob_bid, tob_ask):
+        ''' Having cancelled unwanted orders in process_signal1, MML now adds orders to meet
+        desired bid and ask, but will not cross the spread determined by other providers'''
+        # clear the quote collector
+        self.quote_collector.clear()
+        
+        # add new orders to make depth and/or establish new inside spread
+        self._update_ask_book(step, tob_bid)
+        self._update_bid_book(step, tob_ask)
         
         # update cash flow collector, reset inventory, clear recent prices
-        self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
-                                         'delta_inv': self._delta_inv})
+        self.cumulate_cashflow(step)
         self._delta_inv = 0
         self._last_buy_prices.clear()
         self._last_sell_prices.clear()
