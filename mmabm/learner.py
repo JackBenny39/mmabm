@@ -424,6 +424,7 @@ class MarketMakerL():
         ''' Having cancelled unwanted orders in process_signal1, MML now adds orders to meet
         desired bid and ask, but will not cross the spread determined by other providers'''
         # clear the quote collector
+        self.cancel_collector.clear()
         self.quote_collector.clear()
         
         # add new orders to make depth and/or establish new inside spread
