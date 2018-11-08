@@ -515,7 +515,7 @@ class TestTrader(unittest.TestCase):
             with self.subTest(p=p):
                 self.assertFalse(p in self.l1._ask_book_prices)
         self.assertEqual(len(self.l1.cancel_collector), 3)
-        # case 2b: new ask = 1000, new bid = 995 -> no new cancels
+        # case 2b: new bid = 987 -> cancel 988, 989, 990
         self.l1._ask = 1000
         self.l1._bid = 987
         self.l1._process_cancels(8)
@@ -672,8 +672,9 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._bid, 990)
         self.assertEqual(self.l1._ask, 998)
         self.assertEqual(len(self.l1.quote_collector), 2)
-    @unittest.skip('For now')
-    def test_process_signal(self):
+
+    def test_process_signals(self):
+        ''' Test process_signal1 and process_signal2 '''
         signal = {'oibv': 6, 'arrv': 8, 'mid': 1000, 'oib': '011111000000011111000000',
                   'arr': '1222102221222222', 'vol': 4}
         
@@ -689,25 +690,33 @@ class TestTrader(unittest.TestCase):
         step = 20
         
         self.l1.seed_book(step, ask, bid)
-        self.l1.process_signal(44, signal)
+        self.assertEqual(self.l1._bid, 985)
+        self.assertEqual(self.l1._ask, 1015)
+        self.l1.process_signal1(44, signal)
         
         # Step 1: update scores for predictors:
         self.assertListEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'], [9, 1, 9.0])
         self.assertListEqual(self.l1._arr_strat['1222102221222222']['accuracy'], [0, 1, 0.0])
         self.assertListEqual(self.l1._spradj_strat['21220']['rr_spread'], [6, 4, 1.5])
-        # Step 2: clear the quote and cancel lists:
-        # Step 3: update the midpoint:
+        # Step 2: update the midpoint:
         self.assertEqual(self.l1._mid, 994)
-        # Step 4: update spread: using updated spradj_strat = '21220', adjustment == 0 -> bid == 990, ask == 998
+        # Step 3: update spread: using updated spradj_strat = '21220', adjustment == 0 -> bid == 990, ask == 998
+        self.assertEqual(self.l1._bid, 990)
+        self.assertEqual(self.l1._ask, 998)
+        # Step 4: process cancels: there aren't any
         # Step 5: update the book
+        tob_bid = 988
+        tob_ask = 1000
+        self.l1.process_signal2(step, tob_bid, tob_ask)
         for p in range(951, 991):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._bid_book_prices)
         for p in range(998, 1038):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._ask_book_prices)
+        self.assertEqual(len(self.l1.quote_collector), 78)
         # Step 6: update cash flow collector, reset inventory, clear recent prices
-        self.assertDictEqual(self.l1.cash_flow_collector[-1], {'mmid': 3001, 'timestamp': 44, 'cash_flow': 0, 'delta_inv': 3})
+        self.assertDictEqual(self.l1.cash_flow_collector[-1], {'mmid': 3001, 'timestamp': 20, 'cash_flow': 0, 'delta_inv': 3})
         self.assertFalse(self.l1._delta_inv)
         self.assertFalse(self.l1._last_buy_prices)
         self.assertFalse(self.l1._last_sell_prices)

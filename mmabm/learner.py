@@ -300,8 +300,8 @@ class MarketMakerL():
         self._match_arr_strat2(arr_signal)
         self._match_spread_strat(self._arr_strat[self._current_arr_strat]['action'])
         spr_adj = sum([self._spradj_strat[c]['strategy'] for c in self._current_spradj_strat])/len(self._current_spradj_strat)
-        self._ask = self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2)
-        self._bid = self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2)
+        self._ask = int(self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2))
+        self._bid = int(self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2))
         while self._ask - self._bid <= 0:
             if random.random() > 0.5:
                 self._ask += 1
