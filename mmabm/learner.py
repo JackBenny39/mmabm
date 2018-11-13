@@ -62,7 +62,7 @@ class MarketMakerL():
         self._spradj_weights = self._make_weights(self._spradj_keep)
         
         self._current_oi_strat = []
-        self._current_arr_strat = None
+        self._current_arr_strat = random.choice(list(self._arr_strat.keys()))
         self._current_spradj_strat = []
         
         self._keep_p = keep_pct
@@ -313,31 +313,39 @@ class MarketMakerL():
         best_ask = self._ask_book_prices[0]
         if self._ask > best_ask:
             for p in range(best_ask, self._ask):
-                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
+                if p in self._ask_book_prices:
+                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
             for c in self.cancel_collector:
                 self._remove_order(c['side'], c['price'], c['order_id'])
         best_bid = self._bid_book_prices[-1]
         if self._bid < best_bid:
             for p in range(self._bid + 1, best_bid + 1):
-                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+                if p in self._bid_book_prices:
+                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
             for c in self.cancel_collector:
                 self._remove_order(c['side'], c['price'], c['order_id'])
     
     def _update_ask_book(self, step, tob_bid):
         target_ask = max(self._ask, tob_bid + 1)
-        local_best_ask = self._ask_book_prices[0]
-        if target_ask < local_best_ask:
-            for p in range(target_ask, local_best_ask):
-                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
-                self.quote_collector.append(q)
-                self._add_order(q)
-            if self._ask_book[local_best_ask]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
-                self.quote_collector.append(q)
-                self._add_order(q)
+        if self._ask_book_prices:
+            local_best_ask = self._ask_book_prices[0]
+            if target_ask < local_best_ask:
+                for p in range(target_ask, local_best_ask):
+                    q = self._make_add_quote(step, Side.ASK, p, self._maxq)
+                    self.quote_collector.append(q)
+                    self._add_order(q)
+                if self._ask_book[local_best_ask]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+                    self.quote_collector.append(q)
+                    self._add_order(q)
+            else:
+                if self._ask_book[local_best_ask]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+                    self.quote_collector.append(q)
+                    self._add_order(q)
         else:
-            if self._ask_book[local_best_ask]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+            for p in range(target_ask, target_ask + 40):
+                q = self._make_add_quote(step, Side.ASK, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._ask_book_prices) < 20:
@@ -353,19 +361,25 @@ class MarketMakerL():
                 
     def _update_bid_book(self, step, tob_ask):
         target_bid = min(self._bid, tob_ask - 1)
-        local_best_bid = self._bid_book_prices[-1]
-        if target_bid > local_best_bid:
-            for p in range(local_best_bid+1, target_bid+1):
-                q = self._make_add_quote(step, Side.BID, p, self._maxq)
-                self.quote_collector.append(q)
-                self._add_order(q)
-            if self._bid_book[local_best_bid]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
-                self.quote_collector.append(q)
-                self._add_order(q)
+        if self._bid_book_prices:
+            local_best_bid = self._bid_book_prices[-1]#  else target_bid - 40
+            if target_bid > local_best_bid:
+                for p in range(local_best_bid+1, target_bid+1):
+                    q = self._make_add_quote(step, Side.BID, p, self._maxq)
+                    self.quote_collector.append(q)
+                    self._add_order(q)
+                if self._bid_book[local_best_bid]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
+                    self.quote_collector.append(q)
+                    self._add_order(q)
+            else:
+                if self._bid_book[local_best_bid]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
+                    self.quote_collector.append(q)
+                    self._add_order(q)
         else:
-            if self._bid_book[local_best_bid]['size'] < self._maxq:
-                q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
+            for p in range(target_bid - 40, target_bid + 1):
+                q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)
         if len(self._bid_book_prices) < 20:

@@ -14,7 +14,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=35, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -49,10 +49,10 @@ class Runner:
             self.makeSetup(prime1, kwargs['Lambda0'])
         else:
             self.prime_MML(1, 1002000, 997995)
-        #if self.pj:
-        #    self.runMcsPJ(prime1, write_interval)
-        #else:
-        #    self.runMcs(prime1, write_interval)
+        if self.pj:
+            self.runMcsPJ(prime1, write_interval)
+        else:
+            self.runMcs(prime1, write_interval)
         #self.exchange.trade_book_to_h5(h5filename)
         #self.qTakeToh5()
         #self.mmProfitabilityToh5()
@@ -193,7 +193,7 @@ class Runner:
         return trader_list, len(trader_list)
     
     def seedOrderbook(self):
-        seed_provider = trader.Provider(9999, 1, 0.05)
+        seed_provider = trader.Provider(9999, 1, 0.05, 0.025)
         self.liquidity_providers.update({9999: seed_provider})
         ba = random.choice(range(1000005, 1002001, 5))
         bb = random.choice(range(997995, 999996, 5))
@@ -218,6 +218,7 @@ class Runner:
                     top_of_book = self.exchange.report_top_of_book(current_time)
         ask = top_of_book['best_ask']
         bid = top_of_book['best_bid']
+        self.signal.midl1 = (ask + bid)/2
         self.prime_MML(prime1-1, ask, bid)
         
     def prime_MML(self, step, ask, bid):
@@ -225,7 +226,8 @@ class Runner:
             m.seed_book(step, ask, bid)
             for q in m.quote_collector:
                 self.exchange.process_order(q)
-        self.exchange.report_top_of_book(step)
+        top_of_book = self.exchange.report_top_of_book(step)
+        self.signal.make_mid_signal(step, top_of_book['best_bid'], top_of_book['best_ask'])
 
     def doCancels(self, trader):
         for c in trader.cancel_collector:
@@ -235,12 +237,10 @@ class Runner:
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
-            
-    def confirmTradesMM(self, mm):
-        for c in self.exchange.confirm_trade_collector:
-            contra_side = self.liquidity_providers[c['trader']]
-            contra_side.confirm_trade_local(c)
-            mm.confirm_cross(c)
+            print(c['timestamp'], ': ', c['price'])
+            self.signal.arrv += c['quantity']
+            # side of the resting order: ASK -> taker buy
+            self.signal.oibv += c['quantity'] * (1 if c['side'] == Side.ASK else -1)
     
     def runMcs(self, prime1, write_interval):
         top_of_book = self.exchange.report_top_of_book(prime1)
@@ -257,14 +257,15 @@ class Runner:
                         top_of_book = self.exchange.report_top_of_book(current_time)
                 elif t.trader_type == TType.MarketMaker:
                     if not current_time % t.arrInt:
-                        t.process_signal(current_time, self.signal.make_signal(current_time, top_of_book['best_bid'], top_of_book['best_ask']))
+                        t.process_signal1(current_time, self.signal.make_signal(current_time, top_of_book['best_bid'], top_of_book['best_ask']))
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
                         for q in t.quote_collector:
                             self.exchange.process_order(q)
-                            if self.exchange.traded:
-                                self.confirmTradesMM(t)
-                                t.cumulate_cashflow(current_time)
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
                         self.signal.reset_current()
                 elif t.trader_type == TType.Taker:
@@ -279,6 +280,8 @@ class Runner:
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
+            print(current_time, ': ', top_of_book['best_bid'], ' - ', top_of_book['best_ask'])
+            print(self.marketmakers[0]._bid_book_prices[-1], ' - ', self.marketmakers[0]._ask_book_prices[0])
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
@@ -363,7 +366,6 @@ if __name__ == '__main__':
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
-        for m in market1.marketmakers:
-            print(m[0]._oi_strat)
+        print(market1.signal.ret10, market1.signal.mid, market1.signal.midl1)
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
