@@ -14,7 +14,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=35, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=1000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -164,7 +164,8 @@ class Runner:
         c = -1
         keeper = 0.8
         mutate_pct = 0.03
-        return learner.MarketMakerL(tid, maxq, arrInt, a, b, c, genes, keeper, mutate_pct)
+        genetic_int = 250
+        return learner.MarketMakerL(tid, maxq, arrInt, a, b, c, genes, keeper, mutate_pct, genetic_int)
     
     def makeQTake(self, q_take, lambda_0, wn, c_lambda):
         if q_take:
@@ -237,7 +238,7 @@ class Runner:
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
-            print(c['timestamp'], ': ', c['price'])
+            print('Trade', c['timestamp'], ': ', c['price'])
             self.signal.arrv += c['quantity']
             # side of the resting order: ASK -> taker buy
             self.signal.oibv += c['quantity'] * (1 if c['side'] == Side.ASK else -1)
@@ -268,6 +269,8 @@ class Runner:
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
                         self.signal.reset_current()
+                        if not current_time % t.genetic_int:
+                            t.genetics_us()
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
@@ -352,7 +355,7 @@ if __name__ == '__main__':
                 'Taker': True, 'numTakers': 50, 'takerMaxQ': 1, 'tMu': 0.001,
                 'InformedTrader': False, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
                 'PennyJumper': False, 'AlphaPJ': 0.05,
-                'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1,
+                'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1, 'geneticInt': 250,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
     for j in range(51, 52):
@@ -361,8 +364,8 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_makeall_%d' % j
-        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 901\\'
+        h5_root = 'python_mmabm_%d' % j
+        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)

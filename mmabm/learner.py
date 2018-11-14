@@ -25,7 +25,7 @@ class MarketMakerL():
     '''
     trader_type = TType.MarketMaker
     
-    def __init__(self, name, maxq, arrInt, a, b, c, geneset, keep_pct, m):
+    def __init__(self, name, maxq, arrInt, a, b, c, geneset, keep_pct, m, g_int):
         self.trader_id = name # trader id
         self._maxq = maxq
         self.arrInt = arrInt
@@ -67,15 +67,16 @@ class MarketMakerL():
         
         self._keep_p = keep_pct
         self._mutate_p = m
+        self.genetic_int = g_int
 
 
     ''' New Strategy '''    
     def _make_oi_strat2(self, oi_chroms):
-        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0, 0]} for k, v in oi_chroms.items()}
+        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0, 1000]} for k, v in oi_chroms.items()}
         return oi_strat, len(list(oi_chroms.keys())[0]), len(oi_strat)
     
     def _make_arr_strat2(self, arr_chroms):
-        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 0]} for k, v in arr_chroms.items()}
+        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 1000]} for k, v in arr_chroms.items()}
         return arr_strat, len(list(arr_chroms.keys())[0]), len(arr_strat)
     
     def _make_spread_strat2(self, ba_chroms):
@@ -102,7 +103,7 @@ class MarketMakerL():
                     max_strength = strength
                     max_accuracy = self._oi_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._oi_strat[cond]['accuracy'][-1] < max_accuracy:
+                    if self._oi_strat[cond]['accuracy'][-1] > max_accuracy:
                         self._current_oi_strat.clear()
                         self._current_oi_strat.append(cond)
                         max_accuracy = self._oi_strat[cond]['accuracy'][-1]
@@ -123,7 +124,7 @@ class MarketMakerL():
                     max_strength = strength
                     max_accuracy = self._arr_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
-                    if self._arr_strat[cond]['accuracy'][-1] < max_accuracy:
+                    if self._arr_strat[cond]['accuracy'][-1] > max_accuracy:
                         temp_strats.clear()
                         temp_strats.append(cond)
                         max_accuracy = self._arr_strat[cond]['accuracy'][-1]
@@ -158,13 +159,13 @@ class MarketMakerL():
             accuracy =  self._oi_strat[strat]['accuracy']
             accuracy[0] += abs(actual - self._oi_strat[strat]['strategy'])
             accuracy[1] += 1
-            accuracy[-1] = accuracy[0]/accuracy[1]
+            accuracy[-1] = 1000 - accuracy[0]/accuracy[1]
             
     def _update_arr_acc(self, actual):
         accuracy = self._arr_strat[self._current_arr_strat]['accuracy']
         accuracy[0] += abs(actual - self._arr_strat[self._current_arr_strat]['strategy'])
         accuracy[1] += 1
-        accuracy[-1] = accuracy[0]/accuracy[1]
+        accuracy[-1] = 1000 - accuracy[0]/accuracy[1]
         
     def _update_rspr(self, mid): # Using realized spread in ticks - maybe use relative realized spread?
         if self._last_sell_prices:
@@ -453,8 +454,8 @@ class MarketMakerL():
         
     ''' Genetic Algorithm Machinery '''
     def _find_winners(self):
-        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._oi_keep])
-        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2])[:self._arr_keep])
+        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep])
+        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep])
         self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
         
     def _uniform_selection(self):
@@ -521,7 +522,8 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
                 a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
-                accuracy = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                accuracy = [a0, a1, 1000 - a2]
                 # Add new child to strategy dict
                 self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
             
@@ -555,7 +557,8 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
                 a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
-                accuracy = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                accuracy = [a0, a1, 1000 - a2]
                 # Add new child to strategy dict
                 self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
             
@@ -590,11 +593,12 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
                 a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
-                rr_spread = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                rr_spread = [a0, a1, a2]
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
-    def _genetics_us(self):
+    def genetics_us(self):
         self._find_winners()
         self._oi_genes_us()
         self._arr_genes_us()
@@ -631,7 +635,8 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
                 a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
-                accuracy = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                accuracy = [a0, a1, 1000 - a2]
                 # Add new child to strategy dict
                 self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
             
@@ -665,7 +670,8 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
                 a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
-                accuracy = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                accuracy = [a0, a1, 1000 - a2]
                 # Add new child to strategy dict
                 self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
             
@@ -700,11 +706,12 @@ class MarketMakerL():
                 # Update accuracy - weighted average
                 a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
                 a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
-                rr_spread = [a0, a1, a0/a1]
+                a2 = a0/a1 if a1 > 0 else 0
+                rr_spread = [a0, a1, a2]
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
-    def _genetics_ws(self):
+    def genetics_ws(self):
         self._find_winners()
         self._oi_genes_ws()
         self._arr_genes_ws()
