@@ -378,7 +378,7 @@ class MarketMakerL():
                     self.quote_collector.append(q)
                     self._add_order(q)
         else:
-            for p in range(target_bid - 40, target_bid + 1):
+            for p in range(target_bid - 39, target_bid + 1):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
                 self._add_order(q)

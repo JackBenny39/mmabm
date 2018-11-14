@@ -187,6 +187,7 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._current_arr_strat, '1222102221222222')
         self.assertTrue(all([(self.l1._current_arr_strat[x] == signal[x] or self.l1._current_arr_strat[x] == '2') for x in range(self.l1._arr_len)]))
         self.assertEqual(sum([self.l1._current_arr_strat[x] == signal[x] for x in range(self.l1._arr_len)]), 4)
+        
         # Another winner with strength == 4 could be '2122102221222222'
         self.l1._arr_strat['2122102221222222'] = {'action': 'xxxxx', 'strategy': 999, 'accuracy': [0, 0, 1]}
         # Set '1222102221222222' accuracy to greater than new strat accuracy
@@ -198,8 +199,8 @@ class TestTrader(unittest.TestCase):
         # If they had the same strength and accuracy, only one would be returned
         self.l1._arr_strat['1222102221222222']['accuracy'][-1] = 1
         self.l1._match_arr_strat2(signal)
-        self.assertTrue('2122102221222222' in self.l1._current_arr_strat)
-        self.assertFalse('1222102221222222' in self.l1._current_arr_strat)
+        self.assertFalse('2122102221222222' in self.l1._current_arr_strat)
+        self.assertTrue('1222102221222222' in self.l1._current_arr_strat)
     
     def test_match_spread_strat(self):
         ''' With seeds == 39, ['21220', '22020', '02022', '21212', '22210', '02212'] are the winning strategies with a max strength == 2  '''
@@ -527,26 +528,34 @@ class TestTrader(unittest.TestCase):
                 self.assertFalse(p in self.l1._bid_book_prices)
         self.assertEqual(len(self.l1.cancel_collector), 3)
 
-    def test_update_ask_book(self):
-        ''' Three possibilities:
-        1. _ask > prevailing best bid: add new ask orders from _ask and up
-        2. _ask <= prevailing best bid: add new ask orders from prevailing best bid+1 and up
-        3. _ask == current best ask: check for max size and add size if necessary
-        Also, price range should always be between best ask + 20 and best ask + 60
-        '''
+    ''' Several cases:
+    1. _ask > prevailing worst ask (ask book empty due to canceling first)
+    2. _ask > prevailing best bid: add new ask orders from _ask and up
+    3. _ask <= prevailing best bid: add new ask orders from prevailing best bid+1 and up
+    4. _ask == current best ask: check for max size and add size if necessary
+    Also, price range should always be between best ask + 20 and best ask + 60
+    '''
+    def test_update_ask_book1(self):
+        ''' 1. _ask > prevailing worst ask (ask book empty due to canceling first) '''
+        self.assertFalse(self.l1._ask_book_prices)
+        self.l1._ask = 1000
+        tob_bid = 995
+        self.l1._update_ask_book(6, tob_bid)
+        # case 1: Add orders from 1000 -> 1039
+        for p in range(1000, 1040):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        self.assertEqual(len(self.l1.quote_collector), 40)
+    
+    def test_update_ask_book2(self):
+        ''' 2. _ask > prevailing best bid: add new ask orders from _ask and up '''
         # Create asks from 1005 - 1035
         for p in range(1005, 1036):
             self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
         for p in range(1005, 1036):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._ask_book_prices)
-        # Create bids from 950 - 980
-        for p in range(950, 981):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
-        for p in range(950, 981):
-            with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
-        # case 1: _ask = 1000, best_bid = 995 -> add 5 new prices: 1000 - 1004
+        # case 2: _ask = 1000, best_bid = 995 -> add 5 new prices: 1000 - 1004
         self.l1._ask = 1000
         tob_bid = 995
         self.l1._update_ask_book(6, tob_bid)
@@ -554,8 +563,17 @@ class TestTrader(unittest.TestCase):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._ask_book_prices)
         self.assertEqual(len(self.l1.quote_collector), 5)
-        # case 2: _ask = 990 but best_bid = 995 -> add 4 new prices: 996 - 999
+        
+    def test_update_ask_book3(self):
+        ''' 3. _ask <= prevailing best bid: add new ask orders from prevailing best bid+1 and up '''
+        for p in range(1000, 1036):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
+        for p in range(1000, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        # case 3: _ask = 990 but best_bid = 995 -> add 4 new prices: 996 - 999
         self.l1._ask = 990
+        tob_bid = 995
         self.l1._update_ask_book(7, tob_bid)
         for p in range(996, 1036):
             with self.subTest(p=p):
@@ -563,10 +581,20 @@ class TestTrader(unittest.TestCase):
         for p in range(990, 996):
             with self.subTest(p=p):
                 self.assertFalse(p in self.l1._ask_book_prices)
-        self.assertEqual(len(self.l1.quote_collector), 9)
-        # case 3: new ask size == 2 -> replenish size to 5 with new add order
-        self.l1._modify_order(Side.ASK, 3, 68, 996)
-        self.assertEqual(self.l1._ask_book[996]['orders'][68]['quantity'], 2)
+        self.assertEqual(len(self.l1.quote_collector), 4)
+        
+    def test_update_ask_book4(self):
+        ''' 4. _ask == current best ask: check for max size and add size if necessary '''
+        for p in range(996, 1036):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
+        for p in range(996, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        # case 4: new ask size == 2 -> replenish size to 5 with new add order
+        self.l1._ask = 996
+        tob_bid = 990
+        self.l1._modify_order(Side.ASK, 3, 1, 996)
+        self.assertEqual(self.l1._ask_book[996]['orders'][1]['quantity'], 2)
         self.assertEqual(self.l1._ask_book[996]['size'], 2)
         self.assertEqual(self.l1._ask_book[996]['num_orders'], 1)
         self.l1.quote_collector.clear() # happens in process_order
@@ -574,10 +602,17 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(self.l1._ask_book[996]['size'], 5)
         self.assertEqual(self.l1._ask_book[996]['num_orders'], 2)
         self.assertEqual(len(self.l1.quote_collector), 1)
+        
+    def test_update_ask_book5(self):
+        ''' Also, price range should always be between best ask + 20 and best ask + 60 '''
         # make best ask == 1020 -> add orders to the other end of the book to make 40 prices
-        self.l1._bid = 985
+        for p in range(1020, 1036):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
+        for p in range(1020, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._ask_book_prices)
+        tob_bid = 990
         self.l1._ask = 1020
-        self.l1._process_cancels(9)
         self.l1._update_ask_book(10, tob_bid)
         for p in range(1020, 1059):
             with self.subTest(p=p):
@@ -593,27 +628,35 @@ class TestTrader(unittest.TestCase):
         for p in range(1020, 1059):
             with self.subTest(p=p):
                 self.assertFalse(p in self.l1._ask_book_prices)
-
-    def test_update_bid_book(self):
-        ''' Three possibilities:
-        1. _bid < prevailing best ask: add new bid orders from _bid and down
-        2. _bid >= prevailing best ask: add new bid orders from prevailing best ask-1 and down
-        3. _bid == current best bid: check for max size and add size if necessary
-        Also, price range should always be between best bid - 20 and best bid - 60
-        '''
-        # Create asks from 1005 - 1035
-        for p in range(1005, 1036):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
-        for p in range(1005, 1036):
+                
+    ''' Several cases:
+    1. _bid < prevailing worst bid (bid book empty due to canceling first)
+    2. _bid < prevailing best ask: add new bid orders from _bid and down
+    3. _bid >= prevailing best ask: add new bid orders from prevailing best ask-1 and down
+    4. _bid == current best bid: check for max size and add size if necessary
+    Also, price range should always be between best bid - 20 and best bid - 60
+    '''
+    def test_update_bid_book1(self):
+        ''' 1. _bid < prevailing worst bid (bid book empty due to canceling first) '''
+        self.assertFalse(self.l1._bid_book_prices)
+        self.l1._bid = 995
+        tob_ask = 1000
+        self.l1._update_bid_book(6, tob_ask)
+        # case 1: Add orders from 956 -> 995
+        for p in range(956, 996):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._ask_book_prices)
+                self.assertTrue(p in self.l1._bid_book_prices)
+        self.assertEqual(len(self.l1.quote_collector), 40)
+    
+    def test_update_bid_book2(self):
+        ''' 2. _bid < prevailing best ask: add new bid orders from _bid and down '''
         # Create bids from 960 - 990
         for p in range(960, 991):
             self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
         for p in range(960, 991):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._bid_book_prices)
-        # case 1: _bid = 995, best_ask = 1000 -> add 5 new prices: 995 - 999
+        # case 2: _bid = 995, best_ask = 1000 -> add 5 new prices: 991 - 995
         self.l1._bid = 995
         tob_ask = 1000
         self.l1._update_bid_book(6, tob_ask)
@@ -621,6 +664,15 @@ class TestTrader(unittest.TestCase):
             with self.subTest(p=p):
                 self.assertTrue(p in self.l1._bid_book_prices)
         self.assertEqual(len(self.l1.quote_collector), 5)
+        
+    def test_update_bid_book3(self):
+        ''' _bid >= prevailing best ask: add new bid orders from prevailing best ask-1 and down '''
+        # Create bids from 960 - 995
+        for p in range(960, 996):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+        for p in range(960, 996):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
         # case 2: _bid = 1000, but tob_ask = 988 -> add 2 prices: 996, 997
         self.l1._bid = 1000
         tob_ask = 998
@@ -631,21 +683,39 @@ class TestTrader(unittest.TestCase):
         for p in range(998, 1000):
             with self.subTest(p=p):
                 self.assertFalse(p in self.l1._bid_book_prices)
-        self.assertEqual(len(self.l1.quote_collector), 7)
-        # case 3: new bid size == 2 -> replenish size to 5 with new add order
-        self.l1._modify_order(Side.BID, 3, 69, 997)
-        self.assertEqual(self.l1._bid_book[997]['orders'][69]['quantity'], 2)
-        self.assertEqual(self.l1._bid_book[997]['size'], 2)
-        self.assertEqual(self.l1._bid_book[997]['num_orders'], 1)
+        self.assertEqual(len(self.l1.quote_collector), 2)
+        
+    def test_update_bid_book4(self):
+        ''' 4. _bid == current best bid: check for max size and add size if necessary '''
+        # case 4: new bid size == 2 -> replenish size to 5 with new add order
+        # Create bids from 960 - 995
+        for p in range(960, 996):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+        for p in range(960, 996):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
+        self.l1._bid = 995
+        tob_ask = 1000
+        self.l1._modify_order(Side.BID, 3, 36, 995)
+        self.assertEqual(self.l1._bid_book[995]['orders'][36]['quantity'], 2)
+        self.assertEqual(self.l1._bid_book[995]['size'], 2)
+        self.assertEqual(self.l1._bid_book[995]['num_orders'], 1)
         self.l1.quote_collector.clear() # happens in process_order
         self.l1._update_bid_book(8, tob_ask)
-        self.assertEqual(self.l1._bid_book[997]['size'], 5)
-        self.assertEqual(self.l1._bid_book[997]['num_orders'], 2)
+        self.assertEqual(self.l1._bid_book[995]['size'], 5)
+        self.assertEqual(self.l1._bid_book[995]['num_orders'], 2)
         self.assertEqual(len(self.l1.quote_collector), 1)
+        
+    def test_update_bid_book5(self):
+        ''' Also, price range should always be between best bid - 20 and best bid - 60 '''
         # make best bid == 975 -> add orders to the other end of the book to make 40 prices
+        for p in range(960, 976):
+            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+        for p in range(960, 976):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._bid_book_prices)
         self.l1._bid = 975
-        self.l1._ask = 1020
-        self.l1._process_cancels(9)
+        tob_ask = 1040
         self.l1._update_bid_book(9, tob_ask)
         for p in range(936, 975):
             with self.subTest(p=p):
@@ -852,6 +922,6 @@ class TestTrader(unittest.TestCase):
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spradj_keep)
         self.l1._spr_genes_ws()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
-        for k in self.l1._spradj_strat.keys():
-            if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
-                print(self.l1._spradj_strat[k])
+        #for k in self.l1._spradj_strat.keys():
+            #if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
+                #print(self.l1._spradj_strat[k])
