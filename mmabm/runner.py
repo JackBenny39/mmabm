@@ -14,7 +14,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=1000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=10000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -142,9 +142,9 @@ class Runner:
         spr_adj_n = 4
         probs = [0.05, 0.05, 0.9]
         
-        arr_genes = {}
-        oi_genes = {}
-        spread_genes = {}
+        arr_genes = {'2' * arr_cond_n: '0' * arr_fcst_n}
+        oi_genes = {'2' * oi_cond_n: '0' * oi_fcst_n}
+        spread_genes = {'2' * spr_cond_n: '0' * spr_adj_n}
         genes = tuple([oi_genes, arr_genes, spread_genes])
         while len(arr_genes) < gene_n1:
             gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
@@ -269,8 +269,6 @@ class Runner:
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
                         self.signal.reset_current()
-                        if not current_time % t.genetic_int:
-                            t.genetics_us()
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))

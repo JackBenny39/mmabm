@@ -426,6 +426,9 @@ class MarketMakerL():
         self._update_arr_acc(signal['arrv'])
         self._update_rspr(signal['mid'])
         
+        # run genetics if it is time
+        self._genetics_us()
+        
         # compute new midpoint
         self._update_midpoint(signal['oib'])
         
@@ -454,9 +457,20 @@ class MarketMakerL():
         
     ''' Genetic Algorithm Machinery '''
     def _find_winners(self):
+        oi_allk = '2' * self._oi_len
+        oi_all = {oi_allk: self._oi_strat[oi_allk]}
         self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep])
+        self._oi_strat.update(oi_all)
+        
+        arr_allk = '2' * self._arr_len
+        arr_all = {arr_allk: self._arr_strat[arr_allk]}
         self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep])
+        self._arr_strat.update(arr_all)
+        
+        spr_allk = '2' * self._spr_len
+        spr_all = {spr_allk: self._spradj_strat[spr_allk]}
         self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
+        self._spradj_strat.update(spr_all)
         
     def _uniform_selection(self):
         oi_parents = list(self._oi_strat.keys())
@@ -598,7 +612,7 @@ class MarketMakerL():
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
-    def genetics_us(self):
+    def _genetics_us(self):
         self._find_winners()
         self._oi_genes_us()
         self._arr_genes_us()
