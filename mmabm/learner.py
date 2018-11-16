@@ -725,7 +725,7 @@ class MarketMakerL():
                 # Add new child to strategy dict
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
-    def genetics_ws(self):
+    def _genetics_ws(self):
         self._find_winners()
         self._oi_genes_ws()
         self._arr_genes_ws()
