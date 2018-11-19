@@ -4,7 +4,9 @@ import time
 import numpy as np
 import pandas as pd
 
+import mmabm.learner as learner
 import mmabm.orderbook as orderbook
+import mmabm.signal as signal
 import mmabm.trader as trader
 
 from mmabm.shared import Side, OType, TType
@@ -12,83 +14,67 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=10000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
+        self.signal = signal.Signal()
         self.h5filename = h5filename
         self.mpi = mpi
         self.run_steps = run_steps + 1
         self.liquidity_providers = {}
         self.provider = kwargs.pop('Provider')
         if self.provider:
-            self.provider_array = self.buildProviders(kwargs['numProviders'], kwargs['providerMaxQ'],
-                                                      kwargs['pAlpha'], kwargs['pDelta'])
+            self.providers, self.num_providers = self.buildProviders(kwargs['numProviders'], kwargs['providerMaxQ'], 
+                                                                     kwargs['pAlpha'], kwargs['pDelta'])
             self.q_provide = kwargs['qProvide']
         self.taker = kwargs.pop('Taker')
         if self.taker:
-            self.taker_array = self.buildTakers(kwargs['numTakers'], kwargs['takerMaxQ'], kwargs['tMu'])
+            self.takers = self.buildTakers(kwargs['numTakers'], kwargs['takerMaxQ'], kwargs['tMu'])
         self.informed = kwargs.pop('InformedTrader')
         if self.informed:
             if self.taker:
-                takerTradeV = np.array([t[1] for t in self.taker_array])
-            informedTrades = np.int(kwargs['iMu']*np.sum(takerTradeV*self.run_steps/self.t_delta_t) if self.taker else 1/kwargs['iMu'])
-            self.t_delta_i, self.informed_trader = self.buildInformedTrader(kwargs['informedMaxQ'], kwargs['informedRunLength'], informedTrades, prime1)
+                takerTradeV = np.array([t.quantity*self.run_steps/t.delta_t for t in self.takers])
+            informedTrades = np.int(kwargs['iMu']*np.sum(takerTradeV) if self.taker else 1/kwargs['iMu'])
+            self.informed_trader = self.buildInformedTrader(kwargs['informedMaxQ'], kwargs['informedRunLength'], informedTrades, prime1)
         self.pj = kwargs.pop('PennyJumper')
         if self.pj:
             self.pennyjumper = self.buildPennyJumper()
             self.alpha_pj = kwargs['AlphaPJ']
         self.marketmaker = kwargs.pop('MarketMaker')
         if self.marketmaker:
-            self.marketmakers = self.buildMarketMakers(kwargs['MMMaxQ'], kwargs['NumMMs'], kwargs['MMQuotes'], 
-                                                       kwargs['MMQuoteRange'], kwargs['MMDelta'])
-        self.traders = self.makeAll()
+            self.marketmakers = self.buildMarketMakers(kwargs['NumMMs'], kwargs['arrInt'])
+        self.traders, self.num_traders = self.makeAll()
         self.q_take, self.lambda_t = self.makeQTake(kwargs['QTake'], kwargs['Lambda0'], kwargs['WhiteNoise'], kwargs['CLambda'])
         self.seedOrderbook()
         if self.provider:
             self.makeSetup(prime1, kwargs['Lambda0'])
+        else:
+            self.prime_MML(1, 1002000, 997995)
         if self.pj:
             self.runMcsPJ(prime1, write_interval)
         else:
             self.runMcs(prime1, write_interval)
-        self.exchange.trade_book_to_h5(h5filename)
-        self.qTakeToh5()
-        self.mmProfitabilityToh5()
+        #self.exchange.trade_book_to_h5(h5filename)
+        #self.qTakeToh5()
+        #self.mmProfitabilityToh5()
                   
     def buildProviders(self, numProviders, providerMaxQ, pAlpha, pDelta):
         ''' Providers id starts with 1
         '''
         provider_ids = [1000 + i for i in range(numProviders)]
-        provider_list = [trader.Provider(p, providerMaxQ, pDelta) for p in provider_ids]
+        provider_list = [trader.Provider(p, providerMaxQ, pDelta, pAlpha) for p in provider_ids]
         self.liquidity_providers.update(dict(zip(provider_ids, provider_list)))
-        provider_size = np.array([p.quantity for p in provider_list])
-        t_delta_p = np.floor(np.random.exponential(1/pAlpha, numProviders)+1)*provider_size
-        return np.vstack([np.array(provider_list), t_delta_p.astype(np.int)]).T
+        return provider_list, len(provider_list)
     
     def buildTakers(self, numTakers, takerMaxQ, tMu):
         ''' Takers id starts with 2
         '''
-        takers_list = [2000 + i for i in range(numTakers)]
-        takers = np.array([trader.Taker(t, takerMaxQ) for t in takers_list])
-        taker_size = np.array([t.quantity for t in takers])
-        t_delta_t = np.floor(np.random.exponential(1/tMu, numTakers)+1)*taker_size
-        return np.vstack([takers, t_delta_t.astype(np.int)]).T
+        taker_ids = [2000 + i for i in range(numTakers)]
+        return [trader.Taker(t, takerMaxQ, tMu) for t in taker_ids]
     
     def buildInformedTrader(self, informedMaxQ, informedRunLength, informedTrades, prime1):
         ''' Informed trader id starts with 5
         '''
-        informed = trader.InformedTrader(5000, informedMaxQ)
-        numChoices = int(informedTrades/(informedRunLength*informed.quantity)) + 1
-        choiceRange = range(prime1, self.run_steps - informedRunLength + 1)
-        t_delta_i = set()
-        for _ in range(1, numChoices):
-            runL = 0
-            step = random.choice(choiceRange)
-            while runL < informedRunLength:
-                while step in t_delta_i:
-                    step += 1
-                t_delta_i.add(step)
-                step += 1
-                runL += 1
-        return t_delta_i, np.vstack([informed, 0]).T
+        return trader.InformedTrader(5000, informedMaxQ, informedTrades, informedRunLength, prime1, self.run_steps)
     
     def buildPennyJumper(self):
         ''' PJ id starts with 4
@@ -97,14 +83,89 @@ class Runner:
         self.liquidity_providers.update({4000: jumper})
         return jumper
 
-    def buildMarketMakers(self, mMMaxQ, numMMs, mMQuotes, mMQuoteRange, mMDelta):
+    def buildMarketMakers(self, numMMs, arrInt):
         ''' MM id starts with 3
         '''
         marketmaker_ids = [3000 + i for i in range(numMMs)]
-        marketmaker_list = [trader.MarketMaker(p, mMMaxQ, mMDelta, mMQuotes, mMQuoteRange) for p in marketmaker_ids]
+        marketmaker_list = [self.makeMML(p, arrInt) for p in marketmaker_ids]
         self.liquidity_providers.update(dict(zip(marketmaker_ids, marketmaker_list)))
-        t_delta_m = np.array([m.quantity for m in marketmaker_list])
-        return np.vstack([np.array(marketmaker_list), t_delta_m]).T
+        return marketmaker_list
+    
+    def makeMML(self, tid, arrInt):
+        '''
+        Two sets of market descriptors: arrival count and order imbalance (net signed order flow)
+        arrival count: 16 bits, 8 for previous period and 8 for the previous 5 periods:
+            previous period -> one bit each for > 0, 1, 2, 3, 4, 6, 8, 12
+            previous 5 periods -> one bit each for >  0, 1, 2, 4, 8, 16, 32, 64
+        order imbalance: 24 bits, 12 for previous period and 12 for previous 5 periods:
+            previous period -> one bit each for < -8, -4, -3, -2, -1, 0 and > 0, 1, 2, 3, 4, 8
+            previous 5 periods -> one bit each for < -16, -8, -6, -4, -2, 0 and > 0, 2, 4, 6, 8, 16
+            
+        The market maker has a set of predictors (condition/forecast rules) where the condition
+        matches the market descriptors (i.e., the market state) and the forecasts are used as inputs
+        to the market maker decision making.
+        Each market condition is a bit string that coincides with market descriptors with the
+        additional possibility of "don't care" (==2). 
+        Each market condition has an associated forecast
+        arrival count: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        order imbalance: 6 bits -> lhs bit is +1/-1 and 2^5 - 1 = 31 for a range of -31 - +31
+        
+        Each market maker receives 100 genes for each of the two sets of market descriptors and
+        25 genes for the arrival forecast action rule.
+        Examples:
+        arrival count: 1111100011111100 -> >4 for previous period and >8 for previous 5 periods
+        arrival count gene -> 2222102222221122: 01010 
+            this gene matches on the "do care" (0 or 1) bits and has "don't care" for the remaining
+            bits. It forecasts an arrival count of 10 (0*16 + 1*8 + 0*4 + 1*2 + 0*1).
+        order imbalance: 011111000000011111000000 - < -4 for previous period and < -8 for previous
+        5 periods
+        order imbalance gene: 222221022222222122222012: 010010
+            this gene does not match the market state in position 23 and forecasts an order
+            imbalance of +18 (+1*(1*16 + 0*8 + 0*4 + 1*2 + 0*1))
+            
+        The arrival count forecast acts as a condition/action rule where the condition matches the
+        arrival count forecast and the action adjusts the bid and ask prices:
+        arrival count forecast: 5 bits -> 2^5 - 1 = 31 for a range of 0 - 31
+        action: 4 bits  -> lhs bit is +1/-1 and 2^3 - 1 = 7 for a range of -7 - +7
+        Example:
+        arrival count forecast -> 01010
+        arrival count gene -> 02210: 0010
+            this gene matches the arrival count forecast and adjusts the bid (or ask) by (+1*(0*4 + 1*2 + 0*1) = +2.
+        '''
+        gene_n1 = 100
+        gene_n2 = 25
+        arr_cond_n = 16
+        oi_cond_n = 24
+        spr_cond_n = 5
+        arr_fcst_n = 5
+        oi_fcst_n = 6
+        spr_adj_n = 4
+        probs = [0.05, 0.05, 0.9]
+        
+        arr_genes = {'2' * arr_cond_n: '0' * arr_fcst_n}
+        oi_genes = {'2' * oi_cond_n: '0' * oi_fcst_n}
+        spread_genes = {'2' * spr_cond_n: '0' * spr_adj_n}
+        genes = tuple([oi_genes, arr_genes, spread_genes])
+        while len(arr_genes) < gene_n1:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
+            arr_genes.update({gk: gv})
+        while len(oi_genes) < gene_n1:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
+            oi_genes.update({gk: gv})
+        while len(spread_genes) < gene_n2:
+            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), spr_cond_n, p=probs))
+            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), spr_adj_n))
+            spread_genes.update({gk: gv})
+        # Eventually move these parameters to kwargs
+        maxq = 5
+        a = b = 1
+        c = -1
+        keeper = 0.8
+        mutate_pct = 0.03
+        genetic_int = 250
+        return learner.MarketMakerL(tid, maxq, arrInt, a, b, c, genes, keeper, mutate_pct, genetic_int)
     
     def makeQTake(self, q_take, lambda_0, wn, c_lambda):
         if q_take:
@@ -123,18 +184,17 @@ class Runner:
     def makeAll(self):
         trader_list = []
         if self.provider:
-            trader_list.append(self.provider_array)
+            trader_list.extend(self.providers)
         if self.taker:
-                trader_list.append(self.taker_array)
+            trader_list.extend(self.takers)
         if self.marketmaker:
-            trader_list.append(self.marketmakers)
+            trader_list.extend(self.marketmakers)
         if self.informed:
             trader_list.append(self.informed_trader)
-        all_traders = np.vstack(tuple(trader_list))
-        return all_traders
+        return trader_list, len(trader_list)
     
     def seedOrderbook(self):
-        seed_provider = trader.Provider(9999, 1, 0.05)
+        seed_provider = trader.Provider(9999, 1, 0.05, 0.025)
         self.liquidity_providers.update({9999: seed_provider})
         ba = random.choice(range(1000005, 1002001, 5))
         bb = random.choice(range(997995, 999996, 5))
@@ -152,12 +212,24 @@ class Runner:
     def makeSetup(self, prime1, lambda0):
         top_of_book = self.exchange.report_top_of_book(0)
         for current_time in range(1, prime1):
-            np.random.shuffle(self.provider_array)
-            for p in self.provider_array:
-                if not current_time % p[1]:
-                    self.exchange.process_order(p[0].process_signal(current_time, top_of_book, self.q_provide, -lambda0))
-                    top_of_book = self.exchange.report_top_of_book(current_time)    
-    
+            ps = random.sample(self.providers, self.num_providers)
+            for p in ps:
+                if not current_time % p.delta_t:
+                    self.exchange.process_order(p.process_signal(current_time, top_of_book, self.q_provide, -lambda0))
+                    top_of_book = self.exchange.report_top_of_book(current_time)
+        ask = top_of_book['best_ask']
+        bid = top_of_book['best_bid']
+        self.signal.midl1 = (ask + bid)/2
+        self.prime_MML(prime1-1, ask, bid)
+        
+    def prime_MML(self, step, ask, bid):
+        for m in self.marketmakers:
+            m.seed_book(step, ask, bid)
+            for q in m.quote_collector:
+                self.exchange.process_order(q)
+        top_of_book = self.exchange.report_top_of_book(step)
+        self.signal.make_mid_signal(step, top_of_book['best_bid'], top_of_book['best_ask'])
+
     def doCancels(self, trader):
         for c in trader.cancel_collector:
             self.exchange.process_order(c)
@@ -166,42 +238,51 @@ class Runner:
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
+            print('Trade', c['timestamp'], ': ', c['price'])
+            self.signal.arrv += c['quantity']
+            # side of the resting order: ASK -> taker buy
+            self.signal.oibv += c['quantity'] * (1 if c['side'] == Side.ASK else -1)
     
     def runMcs(self, prime1, write_interval):
         top_of_book = self.exchange.report_top_of_book(prime1)
         for current_time in range(prime1, self.run_steps):
-            np.random.shuffle(self.traders)
-            for row in self.traders:
-                if row[0].trader_type == TType.Provider:
-                    if not current_time % row[1]:
-                        self.exchange.process_order(row[0].process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
+            traders = random.sample(self.traders, self.num_traders)
+            for t in traders:
+                if t.trader_type == TType.Provider:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                    row[0].bulk_cancel(current_time)
-                    if row[0].cancel_collector:
-                        self.doCancels(row[0])
+                    t.bulk_cancel(current_time)
+                    if t.cancel_collector:
+                        self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                elif row[0].trader_type == TType.MarketMaker:
-                    if not current_time % row[1]:
-                        row[0].process_signal(current_time, top_of_book, self.q_provide)
-                        for q in row[0].quote_collector:
+                elif t.trader_type == TType.MarketMaker:
+                    if not current_time % t.arrInt:
+                        t.process_signal1(current_time, self.signal.make_signal(current_time, top_of_book['best_bid'], top_of_book['best_ask']))
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
+                        for q in t.quote_collector:
                             self.exchange.process_order(q)
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                    row[0].bulk_cancel(current_time)
-                    if row[0].cancel_collector:
-                        self.doCancels(row[0])
-                        top_of_book = self.exchange.report_top_of_book(current_time)
-                elif row[0].trader_type == TType.Taker:
-                    if not current_time % row[1]:
-                        self.exchange.process_order(row[0].process_signal(current_time, self.q_take[current_time]))
+                        self.signal.reset_current()
+                elif t.trader_type == TType.Taker:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
                 else:
-                    if current_time in self.t_delta_i:
-                        self.exchange.process_order(row[0].process_signal(current_time))
+                    if current_time in t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time))
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
+            print(current_time, ': ', top_of_book['best_bid'], ' - ', top_of_book['best_ask'])
+            print(self.marketmakers[0]._bid_book_prices[-1], ' - ', self.marketmakers[0]._ask_book_prices[0])
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
@@ -209,35 +290,35 @@ class Runner:
     def runMcsPJ(self, prime1, write_interval):
         top_of_book = self.exchange.report_top_of_book(prime1)
         for current_time in range(prime1, self.run_steps):
-            np.random.shuffle(self.traders)
-            for row in self.traders:
-                if row[0].trader_type == TType.Provider:
-                    if not current_time % row[1]:
-                        self.exchange.process_order(row[0].process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
+            traders = random.sample(self.traders, self.num_traders)
+            for t in traders:
+                if t.trader_type == TType.Provider:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                    row[0].bulk_cancel(current_time)
-                    if row[0].cancel_collector:
-                        self.doCancels(row[0])
+                    t.bulk_cancel(current_time)
+                    if t.cancel_collector:
+                        self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                elif row[0].trader_type == TType.MarketMaker:
-                    if not current_time % row[1]:
-                        row[0].process_signal(current_time, top_of_book, self.q_provide)
-                        for q in row[0].quote_collector:
+                elif t.trader_type == TType.MarketMaker:
+                    if not current_time % t.arrInt:
+                        t.process_signal(current_time, top_of_book, self.q_provide)
+                        for q in t.quote_collector:
                             self.exchange.process_order(q)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                    row[0].bulk_cancel(current_time)
-                    if row[0].cancel_collector:
-                        self.doCancels(row[0])
+                    t.bulk_cancel(current_time)
+                    if t.cancel_collector:
+                        self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                elif row[0].trader_type == TType.Taker:
-                    if not current_time % row[1]:
-                        self.exchange.process_order(row[0].process_signal(current_time, self.q_take[current_time]))
+                elif t.trader_type == TType.Taker:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
                 else:
-                    if current_time in self.t_delta_i:
-                        self.exchange.process_order(row[0].process_signal(current_time))
+                    if current_time in t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time))
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
@@ -272,19 +353,20 @@ if __name__ == '__main__':
                 'Taker': True, 'numTakers': 50, 'takerMaxQ': 1, 'tMu': 0.001,
                 'InformedTrader': False, 'informedMaxQ': 1, 'informedRunLength': 1, 'iMu': 0.005,
                 'PennyJumper': False, 'AlphaPJ': 0.05,
-                'MarketMaker': True, 'NumMMs': 1, 'MMMaxQ': 1, 'MMQuotes': 12, 'MMQuoteRange': 60, 'MMDelta': 0.025,
+                'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1, 'geneticInt': 250,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
-    for j in range(51, 61):
+    for j in range(51, 52):
         random.seed(j)
         np.random.seed(j)
     
         start = time.time()
         
-        h5_root = 'python_makeall_%d' % j
-        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\Trial 901\\'
+        h5_root = 'python_mmabm_%d' % j
+        h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
+        print(market1.signal.ret10, market1.signal.mid, market1.signal.midl1)
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))

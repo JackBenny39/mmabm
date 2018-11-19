@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-from math import log
+from math import floor, log
 from mmabm.shared import Side, OType, TType
 
 
@@ -56,12 +56,13 @@ class Provider(ZITrader):
     '''
     trader_type = TType.Provider
         
-    def __init__(self, name, maxq, delta):
+    def __init__(self, name, maxq, delta, pAlpha):
         '''Provider has own delta; a local_book to track outstanding orders and a 
         cancel_collector to convey cancel messages to the exchange.
         '''
         super().__init__(name, maxq)
         self._delta = delta
+        self.delta_t = self._make_delta(pAlpha)
         self.local_book = {}
         self.cancel_collector = []
                 
@@ -71,6 +72,9 @@ class Provider(ZITrader):
     
     def __str__(self):
         return str(tuple([self.trader_id, self.quantity, self._delta]))
+    
+    def _make_delta(self, pAlpha):
+        return int(floor(random.expovariate(pAlpha)+1)*self.quantity)
     
     def _make_cancel_quote(self, q, time):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
@@ -125,11 +129,11 @@ class MarketMaker(Provider):
     '''
     trader_type = TType.MarketMaker
 
-    def __init__(self, name, maxq, delta, num_quotes, quote_range):
+    def __init__(self, name, maxq, pAlpha, delta, num_quotes, quote_range):
         '''_num_quotes and _quote_range determine the depth of MM quoting;
         _position and _cashflow are stored MM metrics
         '''
-        super().__init__(name, maxq, delta)
+        super().__init__(name, maxq, delta, pAlpha)
         self._num_quotes = num_quotes
         self._quote_range = quote_range
         self._position = 0
@@ -181,69 +185,6 @@ class MarketMaker(Provider):
             q = self._make_add_quote(time, side, price)
             self.local_book[q['order_id']] = q
             self.quote_collector.append(q)
-            
-            
-class MarketMakerL():
-    '''
-    MarketMakerL learns from its environment
-    
-    Environment: order flow, absolute order flow (imbalance), current ask, bid and depths
-    What the MML does: prepares ideal order book; compares to actual; add/cancel to make ideal == actual.
-    MML chooses: quote midpoint; spread; price range for bids and asks; depth at those prices.
-    Midpoint: function of signed order imbalance
-    Spread: function of absolute order imbalance
-    Depth: function of absolute order imbalance
-    Price range: emergent outcome
-    
-    Public attributes:
-    Public methods:
-    Private attributes:
-    Private methods:
-    '''
-    trader_type = TType.MarketMaker
-    
-    def __init__(self, name, geneset):
-        self.trader_id = name # trader id
-        self._bid_book = {}
-        self._bid_book_prices = []
-        self._ask_book = {}
-        self._ask_book_prices = []
-        self.quote_collector = []
-        self.cancel_collector = []
-        self._quote_sequence = 0
-        
-        self._strategy = self._make_strategy(geneset)
-        
-    def _make_strategy(self, genes):
-        oi_keys = range(-10, 11)
-        gene_i = [int(x[1:], 2) for x in genes]
-        gene_s = [1 if int(x[0]) else -1 for x in genes]
-        resp = [x * y for x, y in zip(gene_s, gene_i)]
-        return dict(zip(oi_keys, resp))
-    
-    def _make_add_quote(self, time, side, price, quantity):
-        '''Make one add quote (dict)'''
-        self._quote_sequence += 1
-        return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
-                'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
-        
-    def _make_cancel_quote(self, q, time):
-        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': q['trader_id'],
-                'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
-        
-    def process_signal(self, time, tob, signal):
-        '''signal is a dict with: signed oi, absolute oi, inside prices and depth'''
-        self.quote_collector.clear()
-        self.cancel_collector.clear()
-        
-        delta_mid = self._strategy[signal['net_of']]
-        current_mid = (tob['best_bid'] + tob['best_ask'])/2
-        new_mid = current_mid + delta_mid
-        
-        # (% change in) own midpoint is a fx of signed oi and previous market midpoints
-        # spread is a fx of absolute oi
-        # depth is a fx of absolute oi
-        return new_mid
             
 
 class PennyJumper(ZITrader):
@@ -333,8 +274,12 @@ class Taker(ZITrader):
     '''
     trader_type = TType.Taker
 
-    def __init__(self, name, maxq):
+    def __init__(self, name, maxq, tMu):
         super().__init__(name, maxq)
+        self.delta_t = self._make_delta(tMu)
+        
+    def _make_delta(self, tMu):
+        return int(floor(random.expovariate(tMu)+1)*self.quantity)
         
     def process_signal(self, time, q_taker):
         '''Taker buys or sells with 50% probability.'''
@@ -354,10 +299,26 @@ class InformedTrader(ZITrader):
     '''
     trader_type = TType.Informed
     
-    def __init__(self, name, maxq):
+    def __init__(self, name, maxq, informedTrades, informedRunLength, start, stop):
         ZITrader.__init__(self, name, maxq)
         self._side = random.choice([Side.BID, Side.ASK])
         self._price = 0 if self._side == Side.ASK else 2000000
+        self.delta_t = self._make_delta(informedTrades, informedRunLength, start, stop)
+        
+    def _make_delta(self, informedTrades, informedRunLength, start, stop):
+        numChoices = int(informedTrades/(informedRunLength*self.quantity)) + 1
+        choiceRange = range(start, stop - informedRunLength + 1)
+        delta_t = set()
+        for _ in range(1, numChoices):
+            runL = 0
+            step = random.choice(choiceRange)
+            while runL < informedRunLength:
+                while step in delta_t:
+                    step += 1
+                delta_t.add(step)
+                step += 1
+                runL += 1
+        return delta_t
         
     def process_signal(self, time):
         '''InformedTrader buys or sells pre-specified attribute.'''

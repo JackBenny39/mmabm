@@ -4,19 +4,18 @@ import unittest
 import numpy as np
 
 from mmabm.shared import Side, OType
-from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader, MarketMakerL
+from mmabm.trader import ZITrader, Provider, MarketMaker, PennyJumper, Taker, InformedTrader
 
 
 class TestTrader(unittest.TestCase):
     
     def setUp(self):
         self.z1 = ZITrader(1, 5)
-        self.p1 = Provider(1001, 1, 0.025)
-        self.l1 = self._makeMML(3001)
-        self.m1 = MarketMaker(3001, 1, 0.05, 12, 60)
+        self.p1 = Provider(1001, 1, 0.025, 0.0375)
+        self.m1 = MarketMaker(3001, 1, 0.005, 0.05, 12, 60)
         self.j1 = PennyJumper(4001, 1, 5)
-        self.t1 = Taker(2001, 1)
-        self.i1 = InformedTrader(5001, 1)
+        self.t1 = Taker(2001, 1, 0.001)
+        self.i1 = InformedTrader(5001, 1, 250, 1, 20, 100000)
         
         self.q1 = {'order_id': 1, 'timestamp': 1, 'type': OType.ADD, 'quantity': 1, 'side': Side.BID,
                    'price': 125}
@@ -38,12 +37,6 @@ class TestTrader(unittest.TestCase):
                    'price': 129}
         self.q10 = {'order_id': 10, 'timestamp': 10, 'type': OType.ADD, 'quantity': 1, 'side': Side.ASK,
                    'price': 130}
-    
-    def _makeMML(self, tid):
-        bit_n = 5
-        gene_n = 21
-        genes = tuple([''.join(str(x) for x in [random.randint(0, 1) for _ in range(bit_n)]) for _ in range(gene_n)])
-        return MarketMakerL(tid, genes)
         
 # ZITrader tests
 
@@ -171,44 +164,7 @@ class TestTrader(unittest.TestCase):
         self.p1._delta = 0.1
         self.p1.bulk_cancel(12)
         self.assertFalse(self.p1.cancel_collector)
-        
-        
-# MarketMakerL tests
-        
-    def test_make_strategy(self):
-        expected = {-10: -3, -9: -2, -8: 8, -7: -7, -6: 9, -5: 10, -4: -9, -3: -1, -2: -3,
-                    -1: -4, 0: -3, 1: 0, 2: 6, 3: -8, 4: 10, 5: 14, 6: -4, 7: 14, 8: -9,
-                    9: 7, 10: 3}
-        self.assertDictEqual(expected, self.l1._strategy)
-        
-    def test_make_add_quote_MML(self):
-        time = 1
-        side = Side.ASK
-        price = 125
-        quantity = 5
-        q = self.l1._make_add_quote(time, side, price, quantity)
-        expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 1, 'type': OType.ADD, 
-                    'quantity': quantity, 'side': Side.ASK, 'price': 125}
-        self.assertDictEqual(q, expected)
-        
-    def test_make_cancel_quote_MML(self):
-        self.q1['trader_id'] = self.l1.trader_id
-        q = self.l1._make_cancel_quote(self.q1, 2)
-        expected = {'order_id': 1, 'trader_id': self.l1.trader_id, 'timestamp': 2, 'type': OType.CANCEL, 
-                    'quantity': 1, 'side': Side.BID, 'price': 125}
-        self.assertDictEqual(q, expected)
-   
-    def test_process_signal_MML(self):
-        signal = {'net_of': 1, 'delta_mid': 0}
-        time = 10
-        tob1 = {'best_bid': 25000, 'best_ask': 75000, 'bid_size': 10, 'ask_size': 10}
-        temp_mid = self.l1.process_signal(time, tob1, signal)
-        delta = self.l1._strategy[signal['net_of']]
-        self.assertEqual(50000 + delta, temp_mid)
-        print(temp_mid)
 
-   
-        
 # MarketMaker tests
    
     def test_repr_MarketMaker(self):
