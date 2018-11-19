@@ -287,12 +287,12 @@ class MarketMakerL():
             self._remove_order(order_side, order_price, order_id)
 
     ''' Update Orderbook '''    
-    def _update_midpoint(self, oib_signal):
+    def _update_midpoint(self, oib_signal, mid_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies;
         average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
         self._match_oi_strat2(oib_signal)
         flow = sum([self._oi_strat[c]['strategy'] for c in self._current_oi_strat])/len(self._current_oi_strat)
-        self._mid += flow + int(self._c * self._delta_inv)
+        self._mid = mid_signal + flow + int(self._c * self._delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
         '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
@@ -428,12 +428,11 @@ class MarketMakerL():
         
         # run genetics if it is time
         if not step % self._genetic_int:
-            #self._genetics_us()
-            self._genetics_ws()
-            print('Did genetics at: ', step)
+            self._genetics_us()
+            #self._genetics_ws()
         
         # compute new midpoint
-        self._update_midpoint(signal['oib'])
+        self._update_midpoint(signal['oib'], signal['mid'])
         
         # compute desired spread
         self._make_spread(signal['arr'], signal['vol'])
