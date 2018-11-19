@@ -458,18 +458,18 @@ class MarketMakerL():
     ''' Genetic Algorithm Machinery '''
     def _find_winners(self):
         oi_allk = '2' * self._oi_len
-        oi_all = {oi_allk: self._oi_strat[oi_allk]}
-        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep])
+        oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
+        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
         self._oi_strat.update(oi_all)
         
         arr_allk = '2' * self._arr_len
-        arr_all = {arr_allk: self._arr_strat[arr_allk]}
-        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep])
+        arr_all = {arr_allk: self._arr_strat.pop(arr_allk)}
+        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep - 1])
         self._arr_strat.update(arr_all)
         
         spr_allk = '2' * self._spr_len
-        spr_all = {spr_allk: self._spradj_strat[spr_allk]}
-        self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep])
+        spr_all = {spr_allk: self._spradj_strat.pop(spr_allk)}
+        self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep - 1])
         self._spradj_strat.update(spr_all)
         
     def _uniform_selection(self):
