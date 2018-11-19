@@ -67,7 +67,7 @@ class MarketMakerL():
         
         self._keep_p = keep_pct
         self._mutate_p = m
-        self.genetic_int = g_int
+        self._genetic_int = g_int
 
 
     ''' New Strategy '''    
@@ -427,7 +427,10 @@ class MarketMakerL():
         self._update_rspr(signal['mid'])
         
         # run genetics if it is time
-        self._genetics_us()
+        if not step % self._genetic_int:
+            #self._genetics_us()
+            self._genetics_ws()
+            print('Did genetics at: ', step)
         
         # compute new midpoint
         self._update_midpoint(signal['oib'])
