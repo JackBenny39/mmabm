@@ -189,11 +189,11 @@ class MarketMakerL():
         quantity = confirm['quantity']
         if side == Side.BID:
             self._last_buy_prices.append(price)
-            self._cash_flow -= price*quantity
+            self._cash_flow -= price*quantity/100000
             self._delta_inv += quantity
         else:
             self._last_sell_prices.append(price)
-            self._cash_flow += price*quantity
+            self._cash_flow += price*quantity/100000
             self._delta_inv -= quantity
         self._modify_order(side, quantity, confirm['order_id'], price)
         

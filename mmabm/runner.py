@@ -14,7 +14,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=10000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=250000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -53,9 +53,9 @@ class Runner:
             self.runMcsPJ(prime1, write_interval)
         else:
             self.runMcs(prime1, write_interval)
-        #self.exchange.trade_book_to_h5(h5filename)
-        #self.qTakeToh5()
-        #self.mmProfitabilityToh5()
+        self.exchange.trade_book_to_h5(h5filename)
+        self.qTakeToh5()
+        self.mmProfitabilityToh5()
                   
     def buildProviders(self, numProviders, providerMaxQ, pAlpha, pDelta):
         ''' Providers id starts with 1
@@ -238,7 +238,7 @@ class Runner:
         for c in self.exchange.confirm_trade_collector:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
-            print('Trade', c['timestamp'], ': ', c['price'])
+            #print('Trade', c['timestamp'], ': ', c['price'])
             self.signal.arrv += c['quantity']
             # side of the resting order: ASK -> taker buy
             self.signal.oibv += c['quantity'] * (1 if c['side'] == Side.ASK else -1)
@@ -281,8 +281,6 @@ class Runner:
                         if self.exchange.traded:
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
-            print(current_time, ': ', top_of_book['best_bid'], ' - ', top_of_book['best_ask'])
-            print(self.marketmakers[0]._bid_book_prices[-1], ' - ', self.marketmakers[0]._ask_book_prices[0])
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
@@ -341,7 +339,7 @@ class Runner:
         
     def mmProfitabilityToh5(self):
         for m in self.marketmakers:
-            temp_df = pd.DataFrame(m[0].cash_flow_collector)
+            temp_df = pd.DataFrame(m.cash_flow_collector)
             temp_df.to_hdf(self.h5filename, 'mmp', append=True, format='table', complevel=5, complib='blosc')
     
     
@@ -367,6 +365,5 @@ if __name__ == '__main__':
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file, **settings)
-        print(market1.signal.ret10, market1.signal.mid, market1.signal.midl1)
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
