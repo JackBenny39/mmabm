@@ -14,7 +14,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=250000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -54,6 +54,8 @@ class Runner:
         else:
             self.runMcs(prime1, write_interval)
         self.exchange.trade_book_to_h5(h5filename)
+        for m in self.marketmakers:
+            m.signal_collector_to_h5(h5filename)
         self.qTakeToh5()
         self.mmProfitabilityToh5()
                   
