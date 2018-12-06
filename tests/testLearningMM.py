@@ -465,11 +465,12 @@ class TestTrader(unittest.TestCase):
     ''' Orderbook Update Tests '''  
     def test_update_midpoint(self):
         ''' With seeds == 39, '221212222222222222020222' is the sole winning strategy with a max strength == 4 -> action == -3 '''
-        self.l1._mid = 1000
+        self.l1._mid = 990
         self.l1._delta_inv = 3
         #oi_state is 24 bits
-        signal = '011111000000011111000000'
-        self.l1._update_midpoint(signal)
+        oib_signal = '011111000000011111000000'
+        mid_signal = 1000
+        self.l1._update_midpoint(oib_signal, mid_signal)
         # new mid = old mid - 3 + (-1*3)
         self.assertEqual(self.l1._mid, 994)
 

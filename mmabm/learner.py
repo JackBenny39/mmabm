@@ -2,6 +2,7 @@ import bisect
 import random
 
 import numpy as np
+import pandas as pd
 
 from mmabm.shared import Side, OType, TType
 
@@ -67,7 +68,8 @@ class MarketMakerL():
         
         self._keep_p = keep_pct
         self._mutate_p = m
-        self.genetic_int = g_int
+        self._genetic_int = g_int
+        self.signal_collector = []
 
 
     ''' New Strategy '''    
@@ -180,6 +182,22 @@ class MarketMakerL():
                 rr_spread[0] += sum([mid - x for x in self._last_buy_prices])
                 rr_spread[1] += len(self._last_buy_prices)
                 rr_spread[-1] = rr_spread[0]/rr_spread[1]
+                
+    def _collect_signal(self, step, signal):
+        keep = {k: v for k,v in signal.items()}
+        keep['Step'] = step
+        for strat in self._current_oi_strat:
+            keep['OIStrat'] = strat
+            keep['OIStratAction'] = self._oi_strat[strat]['strategy']
+            keep['OIStratAccuracy'] = self._oi_strat[strat]['accuracy'][-1]
+        keep['ArrStrat'] = self._current_arr_strat
+        keep['ArrStratAction'] = self._arr_strat[self._current_arr_strat]['strategy']
+        keep['ArrStratAccuracy'] = self._arr_strat[self._current_arr_strat]['accuracy'][-1]
+        for strat in self._current_spradj_strat:
+            keep['SprStrat'] = strat
+            keep['SprStratAction'] = self._spradj_strat[strat]['strategy']
+            keep['SprStratAccuracy'] = self._spradj_strat[strat]['rr_spread'][-1]
+        self.signal_collector.append(keep)
     
     ''' Handle Trades '''
     def confirm_trade_local(self, confirm):
@@ -189,11 +207,11 @@ class MarketMakerL():
         quantity = confirm['quantity']
         if side == Side.BID:
             self._last_buy_prices.append(price)
-            self._cash_flow -= price*quantity
+            self._cash_flow -= price*quantity/100000
             self._delta_inv += quantity
         else:
             self._last_sell_prices.append(price)
-            self._cash_flow += price*quantity
+            self._cash_flow += price*quantity/100000
             self._delta_inv -= quantity
         self._modify_order(side, quantity, confirm['order_id'], price)
         
@@ -287,12 +305,12 @@ class MarketMakerL():
             self._remove_order(order_side, order_price, order_id)
 
     ''' Update Orderbook '''    
-    def _update_midpoint(self, oib_signal):
+    def _update_midpoint(self, oib_signal, mid_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies;
         average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
         self._match_oi_strat2(oib_signal)
         flow = sum([self._oi_strat[c]['strategy'] for c in self._current_oi_strat])/len(self._current_oi_strat)
-        self._mid += flow + int(self._c * self._delta_inv)
+        self._mid = mid_signal + flow + int(self._c * self._delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
         '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
@@ -426,11 +444,18 @@ class MarketMakerL():
         self._update_arr_acc(signal['arrv'])
         self._update_rspr(signal['mid'])
         
+        self._collect_signal(step, signal)
+        
+        #for strat in self._current_oi_strat:
+            #print(step, strat, self._oi_strat[strat])
+        
         # run genetics if it is time
-        self._genetics_us()
+        if not step % self._genetic_int:
+            self._genetics_us()
+            #self._genetics_ws()
         
         # compute new midpoint
-        self._update_midpoint(signal['oib'])
+        self._update_midpoint(signal['oib'], signal['mid'])
         
         # compute desired spread
         self._make_spread(signal['arr'], signal['vol'])
@@ -730,3 +755,8 @@ class MarketMakerL():
         self._oi_genes_ws()
         self._arr_genes_ws()
         self._spr_genes_ws()
+        
+    def signal_collector_to_h5(self, filename):
+        '''Append signal to an h5 file'''
+        temp_df = pd.DataFrame(self.signal_collector)
+        temp_df.to_hdf(filename, 'signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
