@@ -62,7 +62,7 @@ class MarketMakerL():
         self._spradj_keep = int(keep_pct * self._spr_ngene)
         self._spradj_weights = self._make_weights(self._spradj_keep)
         
-        self._current_oi_strat = []
+        self._current_oi_strat = random.choice(list(self._oi_strat.keys()))
         self._current_arr_strat = random.choice(list(self._arr_strat.keys()))
         self._current_spradj_strat = []
         
@@ -93,24 +93,25 @@ class MarketMakerL():
     ''' New Matching '''
     def _match_oi_strat2(self, market_state):
         '''Returns all strategies with the maximum accuracy'''
-        self._current_oi_strat.clear()
+        temp_strats = []
         max_strength = 0
         max_accuracy = 0
         for cond in self._oi_strat.keys():
             if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._oi_len)]):
                 strength = sum([cond[x] == market_state[x] for x in range(self._oi_len)])
                 if strength > max_strength:
-                    self._current_oi_strat.clear()
-                    self._current_oi_strat.append(cond)
+                    temp_strats.clear()
+                    temp_strats.append(cond)
                     max_strength = strength
                     max_accuracy = self._oi_strat[cond]['accuracy'][-1]
                 elif strength == max_strength:
                     if self._oi_strat[cond]['accuracy'][-1] > max_accuracy:
-                        self._current_oi_strat.clear()
-                        self._current_oi_strat.append(cond)
+                        temp_strats.clear()
+                        temp_strats.append(cond)
                         max_accuracy = self._oi_strat[cond]['accuracy'][-1]
                     elif self._oi_strat[cond]['accuracy'][-1] == max_accuracy:
-                        self._current_oi_strat.append(cond)
+                        temp_strats.append(cond)
+        self._current_oi_strat = random.choice(temp_strats)
     
     def _match_arr_strat2(self, market_state):
         '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
@@ -131,7 +132,7 @@ class MarketMakerL():
                         temp_strats.append(cond)
                         max_accuracy = self._arr_strat[cond]['accuracy'][-1]
                     elif self._arr_strat[cond]['accuracy'][-1] == max_accuracy:
-                        temp_strats.append(cond)         
+                        temp_strats.append(cond)
         self._current_arr_strat = random.choice(temp_strats)
                 
     def _match_spread_strat(self, arrivals):
@@ -157,11 +158,10 @@ class MarketMakerL():
 
     ''' Update accuracy/rr_spread forecast '''                    
     def _update_oi_acc(self, actual):
-        for strat in self._current_oi_strat:
-            accuracy =  self._oi_strat[strat]['accuracy']
-            accuracy[0] += abs(actual - self._oi_strat[strat]['strategy'])
-            accuracy[1] += 1
-            accuracy[-1] = 1000 - accuracy[0]/accuracy[1]
+        accuracy =  self._oi_strat[self._current_oi_strat]['accuracy']
+        accuracy[0] += abs(actual - self._oi_strat[self._current_oi_strat]['strategy'])
+        accuracy[1] += 1
+        accuracy[-1] = 1000 - accuracy[0]/accuracy[1]
             
     def _update_arr_acc(self, actual):
         accuracy = self._arr_strat[self._current_arr_strat]['accuracy']
@@ -186,10 +186,9 @@ class MarketMakerL():
     def _collect_signal(self, step, signal):
         keep = {k: v for k,v in signal.items()}
         keep['Step'] = step
-        for strat in self._current_oi_strat:
-            keep['OIStrat'] = strat
-            keep['OIStratAction'] = self._oi_strat[strat]['strategy']
-            keep['OIStratAccuracy'] = self._oi_strat[strat]['accuracy'][-1]
+        keep['OIStrat'] = self._current_oi_strat
+        keep['OIStratAction'] = self._oi_strat[self._current_oi_strat]['strategy']
+        keep['OIStratAccuracy'] = self._oi_strat[self._current_oi_strat]['accuracy'][-1]
         keep['ArrStrat'] = self._current_arr_strat
         keep['ArrStratAction'] = self._arr_strat[self._current_arr_strat]['strategy']
         keep['ArrStratAccuracy'] = self._arr_strat[self._current_arr_strat]['accuracy'][-1]
@@ -306,11 +305,9 @@ class MarketMakerL():
 
     ''' Update Orderbook '''    
     def _update_midpoint(self, oib_signal, mid_signal):
-        '''Compute change in inventory; obtain the most accurate oi strategies;
-        average the forecast oi (if more than one best strategy); insert into midpoint update equation.'''
+        '''Compute change in inventory; obtain the most accurate oi strategies; insert into midpoint update equation.'''
         self._match_oi_strat2(oib_signal)
-        flow = sum([self._oi_strat[c]['strategy'] for c in self._current_oi_strat])/len(self._current_oi_strat)
-        self._mid = mid_signal + flow + int(self._c * self._delta_inv)
+        self._mid = mid_signal + self._oi_strat[self._current_oi_strat]['strategy'] + int(self._c * self._delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
         '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
@@ -481,10 +478,14 @@ class MarketMakerL():
         self._last_sell_prices.clear()
         
     ''' Genetic Algorithm Machinery '''
+    def _thin_losers(self):
+        #oi_thin = {k: v for k, v in self.oi_strat.items() if v['accuracy'][1] != 0}
+        pass
+        
     def _find_winners(self):
         oi_allk = '2' * self._oi_len
         oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
-        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
+        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._oi_keep - 1])
         self._oi_strat.update(oi_all)
         
         arr_allk = '2' * self._arr_len
