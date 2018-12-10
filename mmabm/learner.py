@@ -92,7 +92,7 @@ class MarketMakerL():
 
     ''' New Matching '''
     def _match_oi_strat2(self, market_state):
-        '''Returns all strategies with the maximum accuracy'''
+        '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
         temp_strats = []
         max_strength = 0
         max_accuracy = 0
@@ -485,11 +485,13 @@ class MarketMakerL():
     def _find_winners(self):
         oi_allk = '2' * self._oi_len
         oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
-        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._oi_keep - 1])
+        #self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._oi_keep - 1])
+        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
         self._oi_strat.update(oi_all)
         
         arr_allk = '2' * self._arr_len
         arr_all = {arr_allk: self._arr_strat.pop(arr_allk)}
+        #self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._arr_keep - 1])
         self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep - 1])
         self._arr_strat.update(arr_all)
         

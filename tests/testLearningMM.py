@@ -814,20 +814,33 @@ class TestTrader(unittest.TestCase):
         for j in range(0, 100, 5):
             with self.subTest(j=j):
                 self.assertTrue(j in [a[1] for a in oi_accs])
-    
-    def test_find_winners(self):
+                
+    def test_find_winners_arr(self):
         for j, k in enumerate(self.l1._arr_strat.keys()):
             self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
-        for j, k in enumerate(self.l1._spradj_strat.keys()):
-            self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.l1._find_winners()
-
-        arr_accs = [kv[1]['accuracy'][2] for kv in self.l1._arr_strat.items()]
+        arr_accs = [v['accuracy'][2] for v in self.l1._arr_strat.values()]
         for j in range(921, 1001):
             with self.subTest(j=j):
                 self.assertTrue(j in arr_accs)
         self.assertEqual(min(arr_accs), 921)
         self.assertEqual(max(arr_accs), 1000)
+        
+        self.l2 = self._makeMML(3002, 1)
+        for j, k in enumerate(self.l2._arr_strat.keys()):
+            self.l2._arr_strat[k]['accuracy'][2] = 1000 - j
+            if j % 5 == 0:
+                self.l2._arr_strat[k]['accuracy'][1] = j
+        self.l2._find_winners()
+        arr_accs = [v['accuracy'] for v in self.l2._arr_strat.values()]
+        for j in range(0, 100, 5):
+            with self.subTest(j=j):
+                self.assertTrue(j in [a[1] for a in arr_accs])
+    
+    def test_find_winners_spr(self):
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.l1._find_winners()
         spr_rr = [kv[1]['rr_spread'][2] for kv in self.l1._spradj_strat.items()]
         for j in range(6, 25):
             with self.subTest(j=j):
