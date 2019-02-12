@@ -356,13 +356,13 @@ if __name__ == '__main__':
                 'MarketMaker': True, 'NumMMs': 1, 'arrInt': 1, 'geneticInt': 250,
                 'QTake': True, 'WhiteNoise': 0.001, 'CLambda': 10.0, 'Lambda0': 100}
     
-    for j in range(51, 52):
+    for j in range(52, 53):
         random.seed(j)
         np.random.seed(j)
     
         start = time.time()
         
-        h5_root = 'python_mmabm_%d' % j
+        h5_root = 'python_mmabm_%d_new_genetics' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     

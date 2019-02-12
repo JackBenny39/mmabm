@@ -4,6 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 
+from mmabm.genetics import find_winners, new_genes_u, new_genes_w
 from mmabm.shared import Side, OType, TType
 
             
@@ -482,23 +483,26 @@ class MarketMakerL():
         #oi_thin = {k: v for k, v in self.oi_strat.items() if v['accuracy'][1] != 0}
         pass
         
-    def _find_winners(self):
-        oi_allk = '2' * self._oi_len
-        oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
+    def _get_winners(self):
+        #oi_allk = '2' * self._oi_len
+        #oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
         #self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._oi_keep - 1])
-        self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
-        self._oi_strat.update(oi_all)
+        #self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
+        #self._oi_strat.update(oi_all)
         
-        arr_allk = '2' * self._arr_len
-        arr_all = {arr_allk: self._arr_strat.pop(arr_allk)}
+        #arr_allk = '2' * self._arr_len
+        #arr_all = {arr_allk: self._arr_strat.pop(arr_allk)}
         #self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._arr_keep - 1])
-        self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep - 1])
-        self._arr_strat.update(arr_all)
+        #self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep - 1])
+        #self._arr_strat.update(arr_all)
         
-        spr_allk = '2' * self._spr_len
-        spr_all = {spr_allk: self._spradj_strat.pop(spr_allk)}
-        self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep - 1])
-        self._spradj_strat.update(spr_all)
+        #spr_allk = '2' * self._spr_len
+        #spr_all = {spr_allk: self._spradj_strat.pop(spr_allk)}
+        #self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep - 1])
+        #self._spradj_strat.update(spr_all)
+        self._oi_strat = find_winners(self._oi_strat, self._oi_len, 'accuracy', self._oi_keep)
+        self._arr_strat = find_winners(self._arr_strat, self._arr_len, 'accuracy', self._arr_keep)
+        self._spradj_strat = find_winners(self._spradj_strat, self._spr_len, 'rr_spread', self._spradj_keep)
         
     def _uniform_selection(self):
         oi_parents = list(self._oi_strat.keys())
@@ -641,10 +645,10 @@ class MarketMakerL():
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
     def _genetics_us(self):
-        self._find_winners()
-        self._oi_genes_us()
-        self._arr_genes_us()
-        self._spr_genes_us()
+        self._get_winners()
+        self._oi_strat = new_genes_u(self._oi_strat, self._oi_ngene, self._oi_len, self._mutate_p, 5, 'accuracy')
+        self._arr_strat = new_genes_u(self._arr_strat, self._arr_ngene, self._arr_len, self._mutate_p, 5, 'accuracy')
+        self._spradj_strat = new_genes_u(self._spradj_strat, self._spr_ngene, self._spr_len, self._mutate_p, 3, 'rr_spread', maxi=False)
         
     def _oi_genes_ws(self):
         # Step 1: get the genes
@@ -754,10 +758,13 @@ class MarketMakerL():
                 self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
     
     def _genetics_ws(self):
-        self._find_winners()
-        self._oi_genes_ws()
-        self._arr_genes_ws()
-        self._spr_genes_ws()
+        self._get_winners()
+        self._oi_strat = new_genes_w(self._oi_strat, self._oi_ngene, self._oi_weights, 
+                                     self._oi_len, self._mutate_p, 5, 'accuracy')
+        self._arr_strat = new_genes_w(self._arr_strat, self._arr_ngene, self._arr_weights, 
+                                      self._arr_len, self._mutate_p, 5, 'accuracy')
+        self._spradj_strat = new_genes_w(self._spradj_strat, self._spr_ngene, self._spradj_weights, 
+                                         self._spr_len, self._mutate_p, 3, 'rr_spread', maxi=False)
         
     def signal_collector_to_h5(self, filename):
         '''Append signal to an h5 file'''
