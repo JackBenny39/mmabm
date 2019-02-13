@@ -508,3 +508,4 @@ def sym_mean(s, a_len):
 
 def asym_mean(s, a_len):
     return format(s, 'b').rjust(a_len, '0')
+

@@ -81,3 +81,4 @@ def new_genes_uf(cromosome, gene_num, c_len, mutate_p, a_len, meas, m_func, maxi
             # Add new child to strategy dict
             cromosome.update({p: {'action': a, 'strategy': s, meas: accuracy}})
     return cromosome
+
