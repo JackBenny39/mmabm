@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 
-from mmabm.genetics import find_winners, new_genes_u, new_genes_w
+from mmabm.genetics import find_winners, new_genes_uf, new_genes_wf
 from mmabm.shared import Side, OType, TType
 
             
@@ -479,294 +479,32 @@ class MarketMakerL():
         self._last_sell_prices.clear()
         
     ''' Genetic Algorithm Machinery '''
-    def _thin_losers(self):
-        #oi_thin = {k: v for k, v in self.oi_strat.items() if v['accuracy'][1] != 0}
-        pass
-        
     def _get_winners(self):
-        #oi_allk = '2' * self._oi_len
-        #oi_all = {oi_allk: self._oi_strat.pop(oi_allk)}
-        #self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._oi_keep - 1])
-        #self._oi_strat = dict(sorted(self._oi_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._oi_keep - 1])
-        #self._oi_strat.update(oi_all)
-        
-        #arr_allk = '2' * self._arr_len
-        #arr_all = {arr_allk: self._arr_strat.pop(arr_allk)}
-        #self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: (-kv[1]['accuracy'][1], -kv[1]['accuracy'][2]))[:self._arr_keep - 1])
-        #self._arr_strat = dict(sorted(self._arr_strat.items(), key=lambda kv: kv[1]['accuracy'][2], reverse=True)[:self._arr_keep - 1])
-        #self._arr_strat.update(arr_all)
-        
-        #spr_allk = '2' * self._spr_len
-        #spr_all = {spr_allk: self._spradj_strat.pop(spr_allk)}
-        #self._spradj_strat = dict(sorted(self._spradj_strat.items(), key=lambda kv: kv[1]['rr_spread'][2], reverse=True)[:self._spradj_keep - 1])
-        #self._spradj_strat.update(spr_all)
         self._oi_strat = find_winners(self._oi_strat, self._oi_len, 'accuracy', self._oi_keep)
         self._arr_strat = find_winners(self._arr_strat, self._arr_len, 'accuracy', self._arr_keep)
         self._spradj_strat = find_winners(self._spradj_strat, self._spr_len, 'rr_spread', self._spradj_keep)
-        
-    def _uniform_selection(self):
-        oi_parents = list(self._oi_strat.keys())
-        arr_parents = list(self._arr_strat.keys())
-        spr_parents = list(self._spradj_strat.keys())
-        o1, o2 = tuple(random.sample(oi_parents, 2))
-        a1, a2 = tuple(random.sample(arr_parents, 2))
-        s1, s2 = tuple(random.sample(spr_parents, 2))
-        print(o1, o2)
-        print(a1, a2)
-        print(s1, s2)
-    
-    def _weighted_selection(self):
-        oi_parents = list(self._oi_strat.keys())
-        arr_parents = list(self._arr_strat.keys())
-        spr_parents = list(self._spradj_strat.keys())
-        o1, o2 = tuple(random.choices(oi_parents, cum_weights=self._oi_weights, k=2))
-        a1, a2 = tuple(random.choices(arr_parents, cum_weights=self._arr_weights, k=2))
-        s1, s2 = tuple(random.choices(spr_parents, cum_weights=self._spradj_weights, k=2))
-        print(o1, o2)
-        print(a1, a2)
-        print(s1, s2)
-        
-    def _crossover(self, p1, p2, x):
-        return p1[:x] + p2[x:]
-    
-    def _mutate_cond(self, c, l):
-        c[random.randrange(l)] = random.randrange(3)
-        return c
- 
-    def _mutate_action(self, c, l):
-        c[random.randrange(l)] = random.randrange(2)
-        return c
-    
-    def _oi_genes_us(self):
-        # Step 1: get the genes
-        oi_parents = list(self._oi_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._oi_strat) < self._oi_ngene:
-            # Choose two parents - uniform selection
-            o1, o2 = tuple(random.sample(oi_parents, 2))
-            # Random uniform crossover
-            x = random.randrange(self._oi_len)
-            o = o1[:x] + o2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._oi_len)
-                o = o[:z] + str(random.randrange(3)) + o[z+1:]
-            # Check if new child differs from current parents
-            if o not in list(self._oi_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._oi_strat[o1]['action']
-                    strategy = self._oi_strat[o1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._oi_strat[o2]['action']
-                    strategy = self._oi_strat[o2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._oi_strat[o1]['strategy'] + self._oi_strat[o2]['strategy']) / 2)
-                    action = '1' if strategy > 0 else '0'
-                    action += format(abs(strategy), 'b').rjust(5, '0')
-                # Update accuracy - weighted average
-                a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
-                a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                accuracy = [a0, a1, 1000 - a2]
-                # Add new child to strategy dict
-                self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-            
-    def _arr_genes_us(self):
-        # Step 1: get the genes
-        arr_parents = list(self._arr_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._arr_strat) < self._arr_ngene:
-            # Choose two parents - uniform selection
-            r1, r2 = tuple(random.sample(arr_parents, 2))
-            # Random uniform crossover
-            x = random.randrange(self._arr_len)
-            r = r1[:x] + r2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._arr_len)
-                r = r[:z] + str(random.randrange(3)) + r[z+1:]
-            # Check if new child differs from current parents
-            if r not in list(self._arr_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._arr_strat[r1]['action']
-                    strategy = self._arr_strat[r1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._arr_strat[r2]['action']
-                    strategy = self._arr_strat[r2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._arr_strat[r1]['strategy'] + self._arr_strat[r2]['strategy']) / 2)
-                    action = format(strategy, 'b').rjust(5, '0')
-                # Update accuracy - weighted average
-                a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
-                a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                accuracy = [a0, a1, 1000 - a2]
-                # Add new child to strategy dict
-                self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-            
-    def _spr_genes_us(self):
-        # Step 1: get the genes
-        spr_parents = list(self._spradj_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._spradj_strat) < self._spr_ngene:
-            # Choose two parents - uniform selection
-            s1, s2 = tuple(random.sample(spr_parents, 2))
-            # Random uniform crossover
-            x = random.randrange(self._spr_len)
-            s = s1[:x] + s2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._spr_len)
-                s = s[:z] + str(random.randrange(3)) + s[z+1:]
-            # Check if new child differs from current parents
-            if s not in list(self._spradj_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._spradj_strat[s1]['action']
-                    strategy = self._spradj_strat[s1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._spradj_strat[s2]['action']
-                    strategy = self._spradj_strat[s2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._spradj_strat[s1]['strategy'] + self._spradj_strat[s2]['strategy']) / 2)
-                    action = '1' if strategy > 0 else '0'
-                    action += format(abs(strategy), 'b').rjust(3, '0')
-                # Update accuracy - weighted average
-                a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
-                a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                rr_spread = [a0, a1, a2]
-                # Add new child to strategy dict
-                self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
-    
+
     def _genetics_us(self):
         self._get_winners()
-        self._oi_strat = new_genes_u(self._oi_strat, self._oi_ngene, self._oi_len, self._mutate_p, 5, 'accuracy')
-        self._arr_strat = new_genes_u(self._arr_strat, self._arr_ngene, self._arr_len, self._mutate_p, 5, 'accuracy')
-        self._spradj_strat = new_genes_u(self._spradj_strat, self._spr_ngene, self._spr_len, self._mutate_p, 3, 'rr_spread', maxi=False)
-        
-    def _oi_genes_ws(self):
-        # Step 1: get the genes
-        oi_parents = list(self._oi_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._oi_strat) < self._oi_ngene:
-            # Choose two parents - weighted selection
-            o1, o2 = tuple(random.choices(oi_parents, cum_weights=self._oi_weights, k=2))
-            # Random uniform crossover
-            x = random.randrange(self._oi_len)
-            o = o1[:x] + o2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._oi_len)
-                o = o[:z] + str(random.randrange(3)) + o[z+1:]
-            # Check if new child differs from current parents
-            if o not in list(self._oi_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._oi_strat[o1]['action']
-                    strategy = self._oi_strat[o1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._oi_strat[o2]['action']
-                    strategy = self._oi_strat[o2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._oi_strat[o1]['strategy'] + self._oi_strat[o2]['strategy']) / 2)
-                    action = '1' if strategy > 0 else '0'
-                    action += format(abs(strategy), 'b').rjust(5, '0')
-                # Update accuracy - weighted average
-                a0 = self._oi_strat[o1]['accuracy'][0] + self._oi_strat[o2]['accuracy'][0]
-                a1 = self._oi_strat[o1]['accuracy'][1] + self._oi_strat[o2]['accuracy'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                accuracy = [a0, a1, 1000 - a2]
-                # Add new child to strategy dict
-                self._oi_strat.update({o: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-            
-    def _arr_genes_ws(self):
-        # Step 1: get the genes
-        arr_parents = list(self._arr_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._arr_strat) < self._arr_ngene:
-            # Choose two parents - weighted selection
-            r1, r2 = tuple(random.choices(arr_parents, cum_weights=self._arr_weights, k=2))
-            # Random uniform crossover
-            x = random.randrange(self._arr_len)
-            r = r1[:x] + r2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._arr_len)
-                r = r[:z] + str(random.randrange(3)) + r[z+1:]
-            # Check if new child differs from current parents
-            if r not in list(self._arr_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._arr_strat[r1]['action']
-                    strategy = self._arr_strat[r1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._arr_strat[r2]['action']
-                    strategy = self._arr_strat[r2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._arr_strat[r1]['strategy'] + self._arr_strat[r2]['strategy']) / 2)
-                    action = format(strategy, 'b').rjust(5, '0')
-                # Update accuracy - weighted average
-                a0 = self._arr_strat[r1]['accuracy'][0] + self._arr_strat[r2]['accuracy'][0]
-                a1 = self._arr_strat[r1]['accuracy'][1] + self._arr_strat[r2]['accuracy'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                accuracy = [a0, a1, 1000 - a2]
-                # Add new child to strategy dict
-                self._arr_strat.update({r: {'action': action, 'strategy': strategy, 'accuracy': accuracy}})
-            
-    def _spr_genes_ws(self):
-        # Step 1: get the genes
-        spr_parents = list(self._spradj_strat.keys())
-        # Step 2: update the strategy dict with unique new children
-        while len(self._spradj_strat) < self._spr_ngene:
-            # Choose two parents - weighted selection
-            s1, s2 = tuple(random.choices(spr_parents, cum_weights=self._spradj_weights, k=2))
-            # Random uniform crossover
-            x = random.randrange(self._spr_len)
-            s = s1[:x] + s2[x:]
-            # Random uniform mutate
-            if random.random() < self._mutate_p:
-                z = random.randrange(self._spr_len)
-                s = s[:z] + str(random.randrange(3)) + s[z+1:]
-            # Check if new child differs from current parents
-            if s not in list(self._spradj_strat.keys()):
-                # Update child action & strategy
-                y = random.random()
-                if y < 0.333: # choose parent 1
-                    action = self._spradj_strat[s1]['action']
-                    strategy = self._spradj_strat[s1]['strategy']
-                elif y > 0.667: # choose parent 2
-                    action = self._spradj_strat[s2]['action']
-                    strategy = self._spradj_strat[s2]['strategy']
-                else: # average parent 1 & 2
-                    strategy = int((self._spradj_strat[s1]['strategy'] + self._spradj_strat[s2]['strategy']) / 2)
-                    action = '1' if strategy > 0 else '0'
-                    action += format(abs(strategy), 'b').rjust(3, '0')
-                # Update accuracy - weighted average
-                a0 = self._spradj_strat[s1]['rr_spread'][0] + self._spradj_strat[s2]['rr_spread'][0]
-                a1 = self._spradj_strat[s1]['rr_spread'][1] + self._spradj_strat[s2]['rr_spread'][1]
-                a2 = a0/a1 if a1 > 0 else 0
-                rr_spread = [a0, a1, a2]
-                # Add new child to strategy dict
-                self._spradj_strat.update({s: {'action': action, 'strategy': strategy, 'rr_spread': rr_spread}})
+        self._oi_strat = new_genes_uf(self._oi_strat, self._oi_ngene, self._oi_len, self._mutate_p, 5, 'accuracy', sym_mean)
+        self._arr_strat = new_genes_uf(self._arr_strat, self._arr_ngene, self._arr_len, self._mutate_p, 5, 'accuracy', asym_mean)
+        self._spradj_strat = new_genes_uf(self._spradj_strat, self._spr_ngene, self._spr_len, self._mutate_p, 3, 'rr_spread', sym_mean, maxi=False)
     
     def _genetics_ws(self):
         self._get_winners()
-        self._oi_strat = new_genes_w(self._oi_strat, self._oi_ngene, self._oi_weights, 
-                                     self._oi_len, self._mutate_p, 5, 'accuracy')
-        self._arr_strat = new_genes_w(self._arr_strat, self._arr_ngene, self._arr_weights, 
-                                      self._arr_len, self._mutate_p, 5, 'accuracy')
-        self._spradj_strat = new_genes_w(self._spradj_strat, self._spr_ngene, self._spradj_weights, 
-                                         self._spr_len, self._mutate_p, 3, 'rr_spread', maxi=False)
+        self._oi_strat = new_genes_wf(self._oi_strat, self._oi_ngene, self._oi_weights, self._oi_len, self._mutate_p, 5, 'accuracy', sym_mean)
+        self._arr_strat = new_genes_wf(self._arr_strat, self._arr_ngene, self._arr_weights, self._arr_len, self._mutate_p, 5, 'accuracy', asym_mean)
+        self._spradj_strat = new_genes_wf(self._spradj_strat, self._spr_ngene, self._spradj_weights, self._spr_len, self._mutate_p, 3, 'rr_spread', sym_mean, maxi=False)
         
     def signal_collector_to_h5(self, filename):
         '''Append signal to an h5 file'''
         temp_df = pd.DataFrame(self.signal_collector)
         temp_df.to_hdf(filename, 'signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
+
+def sym_mean(s, a_len):
+    a = '1' if s > 0 else '0'
+    a += format(abs(s), 'b').rjust(a_len, '0')
+    return a
+
+def asym_mean(s, a_len):
+    return format(s, 'b').rjust(a_len, '0')
