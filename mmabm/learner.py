@@ -1,10 +1,10 @@
 import bisect
 import random
 
-import numpy as np
+#import numpy as np
 import pandas as pd
 
-from mmabm.genetics import find_winners, new_genes_uf, new_genes_wf
+from mmabm.genetics import find_winners, make_strat, make_weights, new_genes_uf, new_genes_wf
 from mmabm.shared import Side, OType, TType
 
             
@@ -53,15 +53,15 @@ class MarketMakerL():
         self._last_buy_prices = []
         self._last_sell_prices = []
         
-        self._oi_strat, self._oi_len, self._oi_ngene = self._make_oi_strat2(geneset[0])
+        self._oi_strat, self._oi_len, self._oi_ngene = make_strat(geneset[0], 'accuracy')
         self._oi_keep = int(keep_pct * self._oi_ngene)
-        self._oi_weights = self._make_weights(self._oi_keep)
-        self._arr_strat, self._arr_len, self._arr_ngene = self._make_arr_strat2(geneset[1])
+        self._oi_weights = make_weights(self._oi_keep)
+        self._arr_strat, self._arr_len, self._arr_ngene = make_strat(geneset[1], 'accuracy', symm=False)
         self._arr_keep = int(keep_pct * self._arr_ngene)
-        self._arr_weights = self._make_weights(self._arr_keep)
-        self._spradj_strat, self._spr_len, self._spr_ngene = self._make_spread_strat2(geneset[2])
+        self._arr_weights = make_weights(self._arr_keep)
+        self._spradj_strat, self._spr_len, self._spr_ngene = make_strat(geneset[2], 'rr_spread', maxi=False)
         self._spradj_keep = int(keep_pct * self._spr_ngene)
-        self._spradj_weights = self._make_weights(self._spradj_keep)
+        self._spradj_weights = make_weights(self._spradj_keep)
         
         self._current_oi_strat = random.choice(list(self._oi_strat.keys()))
         self._current_arr_strat = random.choice(list(self._arr_strat.keys()))
@@ -72,24 +72,6 @@ class MarketMakerL():
         self._genetic_int = g_int
         self.signal_collector = []
 
-
-    ''' New Strategy '''    
-    def _make_oi_strat2(self, oi_chroms):
-        oi_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'accuracy': [0, 0, 1000]} for k, v in oi_chroms.items()}
-        return oi_strat, len(list(oi_chroms.keys())[0]), len(oi_strat)
-    
-    def _make_arr_strat2(self, arr_chroms):
-        arr_strat =  {k: {'action': v, 'strategy': int(v, 2), 'accuracy': [0, 0, 1000]} for k, v in arr_chroms.items()}
-        return arr_strat, len(list(arr_chroms.keys())[0]), len(arr_strat)
-    
-    def _make_spread_strat2(self, ba_chroms):
-        ba_strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), 'rr_spread': [0, 0, 0]} for k, v in ba_chroms.items()}
-        return ba_strat, len(list(ba_chroms.keys())[0]), len(ba_strat)
-    
-    def _make_weights(self, l):
-        denom = sum([j for j in range(1, l+1)])
-        numer = reversed([j for j in range(1, l+1)])
-        return np.cumsum([k/denom for k in numer])
 
     ''' New Matching '''
     def _match_oi_strat2(self, market_state):
@@ -449,8 +431,8 @@ class MarketMakerL():
         
         # run genetics if it is time
         if not step % self._genetic_int:
-            self._genetics_us()
-            #self._genetics_ws()
+            #self._genetics_us()
+            self._genetics_ws()
         
         # compute new midpoint
         self._update_midpoint(signal['oib'], signal['mid'])

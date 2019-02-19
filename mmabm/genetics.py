@@ -1,5 +1,7 @@
 import random
 
+import numpy as np
+
 
 def find_winners(cromosome, c_len, meas, keep, rev=True):
     allk = '2' * c_len
@@ -7,6 +9,20 @@ def find_winners(cromosome, c_len, meas, keep, rev=True):
     chrom = dict(sorted(cromosome.items(), key=lambda kv: kv[1][meas][-1], reverse=rev)[:keep - 1])
     chrom.update(alld)
     return chrom
+
+def make_strat(chroms, meas, maxi=True, symm=True):
+    fit = 1000 if maxi else 0
+    if symm:
+        strat = {k: {'action': v, 'strategy': int(v[1:], 2)*(1 if int(v[0]) else -1), meas: [0, 0, fit]} for k, v in chroms.items()}
+    else:
+        strat =  {k: {'action': v, 'strategy': int(v, 2), meas: [0, 0, fit]} for k, v in chroms.items()}
+    return strat, len(list(chroms.keys())[0]), len(strat)
+
+def make_weights(l):
+    ranger = [j for j in range(1, l+1)]
+    denom = sum(ranger)
+    numer = reversed(ranger)
+    return np.cumsum([k/denom for k in numer])
 
 def new_genes_wf(cromosome, gene_num, weights, c_len, mutate_p, a_len, meas, m_func, maxi=True):
     # Step 1: get the genes
