@@ -1,10 +1,10 @@
 import bisect
 import random
 
-#import numpy as np
 import pandas as pd
 
-from mmabm.genetics import find_winners, make_strat, make_weights, new_genes_uf, new_genes_wf
+from mmabm.genetics import find_winners, make_strat, make_weights, match_strat_all, match_strat_random
+from mmabm.genetics import new_genes_uf, new_genes_wf
 from mmabm.shared import Side, OType, TType
 
             
@@ -72,72 +72,6 @@ class MarketMakerL():
         self._genetic_int = g_int
         self.signal_collector = []
 
-
-    ''' New Matching '''
-    def _match_oi_strat2(self, market_state):
-        '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
-        temp_strats = []
-        max_strength = 0
-        max_accuracy = 0
-        for cond in self._oi_strat.keys():
-            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._oi_len)]):
-                strength = sum([cond[x] == market_state[x] for x in range(self._oi_len)])
-                if strength > max_strength:
-                    temp_strats.clear()
-                    temp_strats.append(cond)
-                    max_strength = strength
-                    max_accuracy = self._oi_strat[cond]['accuracy'][-1]
-                elif strength == max_strength:
-                    if self._oi_strat[cond]['accuracy'][-1] > max_accuracy:
-                        temp_strats.clear()
-                        temp_strats.append(cond)
-                        max_accuracy = self._oi_strat[cond]['accuracy'][-1]
-                    elif self._oi_strat[cond]['accuracy'][-1] == max_accuracy:
-                        temp_strats.append(cond)
-        self._current_oi_strat = random.choice(temp_strats)
-    
-    def _match_arr_strat2(self, market_state):
-        '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
-        temp_strats = []
-        max_strength = 0
-        max_accuracy = 0
-        for cond in self._arr_strat.keys():
-            if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(self._arr_len)]):
-                strength = sum([cond[x] == market_state[x] for x in range(self._arr_len)])
-                if strength > max_strength:
-                    temp_strats.clear()
-                    temp_strats.append(cond)
-                    max_strength = strength
-                    max_accuracy = self._arr_strat[cond]['accuracy'][-1]
-                elif strength == max_strength:
-                    if self._arr_strat[cond]['accuracy'][-1] > max_accuracy:
-                        temp_strats.clear()
-                        temp_strats.append(cond)
-                        max_accuracy = self._arr_strat[cond]['accuracy'][-1]
-                    elif self._arr_strat[cond]['accuracy'][-1] == max_accuracy:
-                        temp_strats.append(cond)
-        self._current_arr_strat = random.choice(temp_strats)
-                
-    def _match_spread_strat(self, arrivals):
-        '''Returns all strategies with the maximum accuracy'''
-        self._current_spradj_strat.clear()
-        max_strength = 0
-        max_rs = 0
-        for cond in self._spradj_strat.keys():
-            if all([(cond[x] == arrivals[x] or cond[x] == '2') for x in range(self._spr_len)]):
-                strength = sum([cond[x] == arrivals[x] for x in range(self._spr_len)])
-                if strength > max_strength:
-                    self._current_spradj_strat.clear()
-                    self._current_spradj_strat.append(cond)
-                    max_strength = strength
-                    max_rs = self._spradj_strat[cond]['rr_spread'][-1]
-                elif strength == max_strength:
-                    if self._spradj_strat[cond]['rr_spread'][-1] > max_rs:
-                        self._current_spradj_strat.clear()
-                        self._current_spradj_strat.append(cond)
-                        max_rs = self._spradj_strat[cond]['rr_spread'][-1]
-                    elif self._spradj_strat[cond]['rr_spread'][-1] == max_rs:
-                        self._current_spradj_strat.append(cond)
 
     ''' Update accuracy/rr_spread forecast '''                    
     def _update_oi_acc(self, actual):
@@ -289,15 +223,15 @@ class MarketMakerL():
     ''' Update Orderbook '''    
     def _update_midpoint(self, oib_signal, mid_signal):
         '''Compute change in inventory; obtain the most accurate oi strategies; insert into midpoint update equation.'''
-        self._match_oi_strat2(oib_signal)
+        self._current_oi_strat = match_strat_random(oib_signal, 'accuracy', self._oi_strat, self._oi_len)
         self._mid = mid_signal + self._oi_strat[self._current_oi_strat]['strategy'] + int(self._c * self._delta_inv)
         
     def _make_spread(self, arr_signal, vol_signal):
         '''Obtain the most accurate arrival forecast; use as input to ask and bid strategies;
         average the most profitable adjustment strategies (if more than one); insert into
         ask and bid price adjustment; check for non-positive spread'''
-        self._match_arr_strat2(arr_signal)
-        self._match_spread_strat(self._arr_strat[self._current_arr_strat]['action'])
+        self._current_arr_strat = match_strat_random(arr_signal, 'accuracy', self._arr_strat, self._arr_len)
+        self._current_spradj_strat = match_strat_all(self._arr_strat[self._current_arr_strat]['action'], 'rr_spread', self._spradj_strat, self._spr_len)
         spr_adj = sum([self._spradj_strat[c]['strategy'] for c in self._current_spradj_strat])/len(self._current_spradj_strat)
         self._ask = int(self._mid + round(max(self._a*vol_signal, self._b) + spr_adj/2))
         self._bid = int(self._mid - round(max(self._a*vol_signal, self._b) + spr_adj/2))
@@ -431,8 +365,8 @@ class MarketMakerL():
         
         # run genetics if it is time
         if not step % self._genetic_int:
-            #self._genetics_us()
-            self._genetics_ws()
+            self._genetics_us()
+            #self._genetics_ws()
         
         # compute new midpoint
         self._update_midpoint(signal['oib'], signal['mid'])
@@ -490,4 +424,3 @@ def sym_mean(s, a_len):
 
 def asym_mean(s, a_len):
     return format(s, 'b').rjust(a_len, '0')
-

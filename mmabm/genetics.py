@@ -24,6 +24,50 @@ def make_weights(l):
     numer = reversed(ranger)
     return np.cumsum([k/denom for k in numer])
 
+def match_strat_random(market_state, meas, strat, c_len):
+    '''Returns a randomly chosen strategy from all strategies with the maximum accuracy'''
+    temp_strats = []
+    max_strength = 0
+    max_accuracy = 0
+    for cond in strat.keys():
+        if all([(cond[x] == market_state[x] or cond[x] == '2') for x in range(c_len)]):
+            strength = sum([cond[x] == market_state[x] for x in range(c_len)])
+            if strength > max_strength:
+                temp_strats.clear()
+                temp_strats.append(cond)
+                max_strength = strength
+                max_accuracy = strat[cond][meas][-1]
+            elif strength == max_strength:
+                if strat[cond][meas][-1] > max_accuracy:
+                    temp_strats.clear()
+                    temp_strats.append(cond)
+                    max_accuracy = strat[cond][meas][-1]
+                elif strat[cond][meas][-1] == max_accuracy:
+                    temp_strats.append(cond)
+    return random.choice(temp_strats)
+
+def match_strat_all(state, meas, strat, c_len):
+    '''Returns all strategies with the maximum accuracy'''
+    current_strat = []
+    max_strength = 0
+    max_rs = 0
+    for cond in strat.keys():
+        if all([(cond[x] == state[x] or cond[x] == '2') for x in range(c_len)]):
+            strength = sum([cond[x] == state[x] for x in range(c_len)])
+            if strength > max_strength:
+                current_strat.clear()
+                current_strat.append(cond)
+                max_strength = strength
+                max_rs = strat[cond][meas][-1]
+            elif strength == max_strength:
+                if strat[cond][meas][-1] > max_rs:
+                    current_strat.clear()
+                    current_strat.append(cond)
+                    max_rs = strat[cond][meas][-1]
+                elif strat[cond][meas][-1] == max_rs:
+                    current_strat.append(cond)
+    return current_strat
+
 def new_genes_wf(cromosome, gene_num, weights, c_len, mutate_p, a_len, meas, m_func, maxi=True):
     # Step 1: get the genes
     parents = list(cromosome.keys())
