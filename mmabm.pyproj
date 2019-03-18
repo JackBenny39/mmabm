@@ -22,6 +22,9 @@
     <Compile Include="mmabm\genetics.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="mmabm\genetics2.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="mmabm\learner.py" />
     <Compile Include="mmabm\models.py">
       <SubType>Code</SubType>

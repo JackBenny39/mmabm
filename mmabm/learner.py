@@ -8,7 +8,7 @@ from mmabm.genetics import new_genes_uf, new_genes_wf
 from mmabm.shared import Side, OType, TType
 
             
-class MarketMakerL():
+class MarketMakerL:
     '''
     MarketMakerL learns from its environment
     
