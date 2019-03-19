@@ -3,6 +3,7 @@ import random
 
 import pandas as pd
 
+from mmabm.localbook import Localbook
 from mmabm.genetics import find_winners, make_strat, make_weights, match_strat_all, match_strat_random
 from mmabm.genetics import new_genes_uf, new_genes_wf
 from mmabm.shared import Side, OType, TType
@@ -34,10 +35,7 @@ class MarketMakerL:
         self._a = a
         self._b = b
         self._c = c
-        self._bid_book = {}
-        self._bid_book_prices = []
-        self._ask_book = {}
-        self._ask_book_prices = []
+        self._localbook = Localbook()
         self._quote_sequence = 0
         
         self.quote_collector = []
@@ -129,30 +127,7 @@ class MarketMakerL:
             self._last_sell_prices.append(price)
             self._cash_flow += price*quantity/100000
             self._delta_inv -= quantity
-        self._modify_order(side, quantity, confirm['order_id'], price)
-        
-    def confirm_cross(self, confirm):
-        ''' Could modify orderbook._confirm_trade to include incoming order_id, but:
-        1. I want to avoid adding to the orderbook workload unnecessarily
-        2. It is possible to obtain the order_id locally because it is guaranteed unique for a specific side/price
-        During process_order, mm posts the order locally, then discovers (via a trade confirm) it has crossed the book.
-        The trade must be recognized by adjusting cash flow and inventory 
-        and then removing the order from the local book
-        Eventually, the learning MM will not do this very frequently - if at all
-        '''
-        price = confirm['price']
-        side = confirm['side']
-        quantity = confirm['quantity']
-        if side == Side.BID: # confirm side == BID means MM crossed (sold) with an ask order
-            self._cash_flow += price*quantity
-            self._delta_inv -= quantity
-            mm_order = self._ask_book[price]['order_ids'][0]
-            self._modify_order(Side.ASK, quantity, mm_order, price)
-        else: # confirm side == ASK means MM  crossed (bought) with a buy order
-            self._cash_flow -= price*quantity
-            self._delta_inv += quantity
-            mm_order = self._bid_book[price]['order_ids'][0]
-            self._modify_order(Side.BID, quantity, mm_order, price)
+        self._localbook.modify_order(side, quantity, confirm['order_id'], price)
         
     def cumulate_cashflow(self, step):
         self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
@@ -168,57 +143,6 @@ class MarketMakerL:
     def _make_cancel_quote(self, q, time):
         return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': self.trader_id,
                 'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
-        
-    ''' Orderbook Bookkeeping with List'''
-    def _add_order(self, order):
-        '''
-        Use insort to maintain on ordered list of prices which serve as pointers
-        to the orders.
-        '''
-        book_order = {'order_id': order['order_id'], 'timestamp': order['timestamp'], 'quantity': order['quantity'],
-                      'side': order['side'], 'price': order['price']}
-        if order['side'] == Side.BID:
-            book_prices = self._bid_book_prices
-            book = self._bid_book
-        else:
-            book_prices = self._ask_book_prices
-            book = self._ask_book
-        if order['price'] in book_prices:
-            level = book[order['price']]
-            level['num_orders'] += 1
-            level['size'] += order['quantity']
-            level['order_ids'].append(book_order['order_id'])
-            level['orders'][book_order['order_id']] = book_order
-        else:
-            bisect.insort(book_prices, order['price'])
-            book[order['price']] = {'num_orders': 1, 'size': order['quantity'], 'order_ids': [book_order['order_id']],
-                                    'orders': {book_order['order_id']: book_order}}
-
-    def _remove_order(self, order_side, order_price, order_id):
-        '''Pop the order_id; if  order_id exists, updates the book.'''
-        if order_side == Side.BID:
-            book_prices = self._bid_book_prices
-            book = self._bid_book
-        else:
-            book_prices = self._ask_book_prices
-            book = self._ask_book
-        is_order = book[order_price]['orders'].pop(order_id, None)
-        if is_order:
-            level = book[order_price]
-            level['num_orders'] -= 1
-            level['size'] -= is_order['quantity']
-            level['order_ids'].remove(order_id)
-            if level['num_orders'] == 0:
-                book_prices.remove(order_price)
-
-    def _modify_order(self, order_side, order_quantity, order_id, order_price):
-        '''Modify order quantity; if quantity is 0, removes the order.'''
-        book = self._bid_book if order_side == Side.BID else self._ask_book
-        if order_quantity < book[order_price]['orders'][order_id]['quantity']:
-            book[order_price]['size'] -= order_quantity
-            book[order_price]['orders'][order_id]['quantity'] -= order_quantity
-        else:
-            self._remove_order(order_side, order_price, order_id)
 
     ''' Update Orderbook '''    
     def _update_midpoint(self, oib_signal, mid_signal):
@@ -243,97 +167,97 @@ class MarketMakerL:
     
     def _process_cancels(self, step):
         self.cancel_collector.clear()
-        best_ask = self._ask_book_prices[0]
+        best_ask = self._localbook.ask_book_prices[0]
         if self._ask > best_ask:
             for p in range(best_ask, self._ask):
-                if p in self._ask_book_prices:
-                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
+                if p in self._localbook.ask_book_prices:
+                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._localbook.ask_book[p]['orders'].values())
             for c in self.cancel_collector:
-                self._remove_order(c['side'], c['price'], c['order_id'])
-        best_bid = self._bid_book_prices[-1]
+                self._localbook.remove_order(c['side'], c['price'], c['order_id'])
+        best_bid = self._localbook.bid_book_prices[-1]
         if self._bid < best_bid:
             for p in range(self._bid + 1, best_bid + 1):
-                if p in self._bid_book_prices:
-                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+                if p in self._localbook.bid_book_prices:
+                    self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._localbook.bid_book[p]['orders'].values())
             for c in self.cancel_collector:
-                self._remove_order(c['side'], c['price'], c['order_id'])
+                self._localbook.remove_order(c['side'], c['price'], c['order_id'])
     
     def _update_ask_book(self, step, tob_bid):
         target_ask = max(self._ask, tob_bid + 1)
-        if self._ask_book_prices:
-            local_best_ask = self._ask_book_prices[0]
+        if self._localbook.ask_book_prices:
+            local_best_ask = self._localbook.ask_book_prices[0]
             if target_ask < local_best_ask:
                 for p in range(target_ask, local_best_ask):
                     q = self._make_add_quote(step, Side.ASK, p, self._maxq)
                     self.quote_collector.append(q)
-                    self._add_order(q)
-                if self._ask_book[local_best_ask]['size'] < self._maxq:
-                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+                    self._localbook.add_order(q)
+                if self._localbook.ask_book[local_best_ask]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._localbook.ask_book[local_best_ask]['size'])
                     self.quote_collector.append(q)
-                    self._add_order(q)
+                    self._localbook.add_order(q)
             else:
-                if self._ask_book[local_best_ask]['size'] < self._maxq:
-                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._ask_book[local_best_ask]['size'])
+                if self._localbook.ask_book[local_best_ask]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.ASK, local_best_ask, self._maxq - self._localbook.ask_book[local_best_ask]['size'])
                     self.quote_collector.append(q)
-                    self._add_order(q)
+                    self._localbook.add_order(q)
         else:
             for p in range(target_ask, target_ask + 40):
                 q = self._make_add_quote(step, Side.ASK, p, self._maxq)
                 self.quote_collector.append(q)
-                self._add_order(q)
-        if len(self._ask_book_prices) < 20:
-            for p in range(self._ask_book_prices[-1] + 1, self._ask_book_prices[-1] + 41 - len(self._ask_book_prices)):
+                self._localbook.add_order(q)
+        if len(self._localbook.ask_book_prices) < 20:
+            for p in range(self._localbook.ask_book_prices[-1] + 1, self._localbook.ask_book_prices[-1] + 41 - len(self._localbook.ask_book_prices)):
                 q = self._make_add_quote(step, Side.ASK, p, self._maxq)
                 self.quote_collector.append(q)
-                self._add_order(q)
-        if len(self._ask_book_prices) > 60:
-            for p in range(self._ask_book_prices[0] + 40, self._ask_book_prices[-1] + 1):
-                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._ask_book[p]['orders'].values())
+                self._localbook.add_order(q)
+        if len(self._localbook.ask_book_prices) > 60:
+            for p in range(self._localbook.ask_book_prices[0] + 40, self._localbook.ask_book_prices[-1] + 1):
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._localbook.ask_book[p]['orders'].values())
             for c in self.cancel_collector:
-                self._remove_order(c['side'], c['price'], c['order_id'])
+                self._localbook.remove_order(c['side'], c['price'], c['order_id'])
                 
     def _update_bid_book(self, step, tob_ask):
         target_bid = min(self._bid, tob_ask - 1)
-        if self._bid_book_prices:
-            local_best_bid = self._bid_book_prices[-1]#  else target_bid - 40
+        if self._localbook.bid_book_prices:
+            local_best_bid = self._localbook.bid_book_prices[-1]#  else target_bid - 40
             if target_bid > local_best_bid:
-                for p in range(local_best_bid+1, target_bid+1):
+                for p in range(local_best_bid + 1, target_bid + 1):
                     q = self._make_add_quote(step, Side.BID, p, self._maxq)
                     self.quote_collector.append(q)
-                    self._add_order(q)
-                if self._bid_book[local_best_bid]['size'] < self._maxq:
-                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
+                    self._localbook.add_order(q)
+                if self._localbook.bid_book[local_best_bid]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._localbook.bid_book[local_best_bid]['size'])
                     self.quote_collector.append(q)
-                    self._add_order(q)
+                    self._localbook.add_order(q)
             else:
-                if self._bid_book[local_best_bid]['size'] < self._maxq:
-                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._bid_book[local_best_bid]['size'])
+                if self._localbook.bid_book[local_best_bid]['size'] < self._maxq:
+                    q = self._make_add_quote(step, Side.BID, local_best_bid, self._maxq - self._localbook.bid_book[local_best_bid]['size'])
                     self.quote_collector.append(q)
-                    self._add_order(q)
+                    self._localbook.add_order(q)
         else:
             for p in range(target_bid - 39, target_bid + 1):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
-                self._add_order(q)
-        if len(self._bid_book_prices) < 20:
-            for p in range(self._bid_book_prices[0] - 40 + len(self._bid_book_prices), self._bid_book_prices[0]):
+                self._localbook.add_order(q)
+        if len(self._localbook.bid_book_prices) < 20:
+            for p in range(self._localbook.bid_book_prices[0] - 40 + len(self._localbook.bid_book_prices), self._localbook.bid_book_prices[0]):
                 q = self._make_add_quote(step, Side.BID, p, self._maxq)
                 self.quote_collector.append(q)
-                self._add_order(q)
-        if len(self._bid_book_prices) > 60:
-            for p in range(self._bid_book_prices[0], self._bid_book_prices[-1] - 39):
-                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._bid_book[p]['orders'].values())
+                self._localbook.add_order(q)
+        if len(self._localbook.bid_book_prices) > 60:
+            for p in range(self._localbook.bid_book_prices[0], self._localbook.bid_book_prices[-1] - 39):
+                self.cancel_collector.extend(self._make_cancel_quote(q, step) for q in self._localbook.bid_book[p]['orders'].values())
             for c in self.cancel_collector:
-                self._remove_order(c['side'], c['price'], c['order_id'])
+                self._localbook.remove_order(c['side'], c['price'], c['order_id'])
                 
     def seed_book(self, step, ask, bid):
         q = self._make_add_quote(step, Side.BID, bid, self._maxq)
         self.quote_collector.append(q)
-        self._add_order(q)
+        self._localbook.add_order(q)
         self._bid = bid
         q = self._make_add_quote(step, Side.ASK, ask, self._maxq)
         self.quote_collector.append(q)
-        self._add_order(q)
+        self._localbook.add_order(q)
         self._ask = ask
         self._mid = (ask+bid)/2
         
