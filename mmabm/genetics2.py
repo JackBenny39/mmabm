@@ -57,7 +57,6 @@ class Predictors:
             self.predictors = sorted(self.predictors, key=lambda c: c.used, reversed=True)[: keep - 1]
         else:
             self.predictors = sorted(used, key=lambda c: c.accuracy)[: keep - 1]
-        return winners
     
     def match_state(self, state, c_len):
         current_preds = []
