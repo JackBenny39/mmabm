@@ -41,6 +41,9 @@
     <Compile Include="mmabm\trader.py" />
     <Compile Include="mmabm\__init__.py" />
     <Compile Include="setup.py" />
+    <Compile Include="tests\testGenetics2.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="tests\testLearningMM.py" />
     <Compile Include="tests\testOrderbook.py" />
     <Compile Include="tests\testRunnerParts.py" />
