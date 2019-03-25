@@ -35,8 +35,31 @@ class TestChromosome(unittest.TestCase):
         self.assertFalse(self.c1.used)
         self.assertFalse(self.c1.accuracy)
 
+    def test_repr(self):
+        print(self.c1)
+
     def test_update_accuracy(self):
         # with seed == 39, c1._strategy == 4
-        self.c1._update_accuracy(1)
+        actual = 1
+        self.c1._update_accuracy(actual)
         self.assertEqual(self.c1.used, 1)
-        self.assertEqual(self.c1.accuracy, 0.02 * (1 - 4) ** 2)
+        self.assertEqual(self.c1.accuracy, self.c1._theta * (actual - self.c1._strategy) ** 2)
+
+
+class TestPredictors(unittest.TestCase):
+
+    def setUp(self):
+        np.random.seed(39)
+        self.p1 = Predictors(10, 16, 8, [0.1, 0.1, 0.8], 0.02, symm=True)
+
+    def test_setUp(self):
+        self.assertEqual(len(self.p1.predictors), 10)
+        self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.predictors)
+
+    def test_find_winners(self):
+        for j in range(10):
+            if j % 2:
+                self.p1.predictors[j].used = j
+                self.p1.predictors[j].accuracy = j / 100
+        self.p1.find_winners(5)
+        print(self.p1.predictors)

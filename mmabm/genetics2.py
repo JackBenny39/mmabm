@@ -7,10 +7,11 @@ class Chromosome:
     '''
     Chromosome is a collection of chromosome attributes:
 
-    _condition is a bitstring of 0, 1, or 2; it matches the market state
-    _action is a bitstring of 0 or 1; it is the action associated with the market state
+    condition is a bitstring of 0, 1, or 2; it matches the market state
+    action is a bitstring of 0 or 1; it is the action associated with the market state
     _strategy is the numerical value of _action
-    _accuracy is a list of three items: a usage count, the MA of the MSFE, and it's inverse
+    used is the number of events 
+    accuracy is the MA of the MSFE
     _theta is the MA weight
 
     Each of the bits can be thought of as a gene - and are subject to potential mutation
@@ -24,6 +25,14 @@ class Chromosome:
         self.used = 0
         self.accuracy = 0
         self._theta = theta
+
+    def __repr__(self):
+        class_name = type(self).__name__
+        return '{0}({1}, {2}, {3}, {4}, {5}, {6})'.format(class_name, self.condition, self.action, self._strategy,
+                                                          self.used, self.accuracy, self._theta)
+
+    def __eq__(self, other):
+        return self.condition == other.condition and self.action == other.action
 
     def _convert_action(self, symm):
         return int(self.action[1:], 2)*(1 if int(self.action[0]) else -1) if symm else int(self.action, 2)
@@ -40,21 +49,20 @@ class Predictors:
     '''
     
     def __init__(self, num_chroms, condition_len, action_len, condition_probs, theta, symm=True):
-        self.predictors = self._make_predictors(num_chroms, condition_len, action_len, condition_probs, theta, symm)
+        self.predictors = [Chromosome('2' * condition_len, '0' * action_len, theta, symm)]
+        self._make_predictors(num_chroms, condition_len, action_len, condition_probs, theta, symm)
 
     def _make_predictors(self, num_chroms, condition_len, action_len, condition_probs, theta, symm):
-        predictors = []
-        while len(predictors) < num_chroms:
+        while len(self.predictors) < num_chroms:
             c = Chromosome(''.join(str(x) for x in np.random.choice(np.arange(0, 3), condition_len, p=condition_probs)),
                            ''.join(str(x) for x in np.random.choice(np.arange(0, 2), action_len)), theta, symm)
-            if c not in predictors:
-                predictors.append(c)
-        return predictors
+            if c not in self.predictors:
+                self.predictors.append(c)
     
     def find_winners(self, keep):
         used = [c for c in self.predictors if c.used]
         if len(used) <= keep:
-            self.predictors = sorted(self.predictors, key=lambda c: c.used, reversed=True)[: keep - 1]
+            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: keep - 1]
         else:
             self.predictors = sorted(used, key=lambda c: c.accuracy)[: keep - 1]
     
