@@ -28,8 +28,10 @@ class Chromosome:
 
     def __repr__(self):
         class_name = type(self).__name__
-        return '{0}({1}, {2}, {3}, {4}, {5}, {6})'.format(class_name, self.condition, self.action, self._strategy,
-                                                          self.used, self.accuracy, self._theta)
+        return '{0}({1}, {2}, {3})'.format(class_name, self.condition, self.action, self._theta)
+
+    def __str__(self):
+        return str(tuple([self.condition, self.action, self._strategy, self.used, self.accuracy, self._theta]))
 
     def __eq__(self, other):
         return self.condition == other.condition and self.action == other.action
@@ -44,13 +46,14 @@ class Chromosome:
 
 class Predictors:
     '''
-    Predictors is a list of chromosomes
+    Predictors is a list of all chromosomes and a list of currently active chromosomes
     
     '''
     
     def __init__(self, num_chroms, condition_len, action_len, condition_probs, theta, symm=True):
         self.predictors = [Chromosome('2' * condition_len, '0' * action_len, theta, symm)]
         self._make_predictors(num_chroms, condition_len, action_len, condition_probs, theta, symm)
+        self.current = []
 
     def _make_predictors(self, num_chroms, condition_len, action_len, condition_probs, theta, symm):
         while len(self.predictors) < num_chroms:
@@ -62,22 +65,21 @@ class Predictors:
     def find_winners(self, keep):
         used = [c for c in self.predictors if c.used]
         if len(used) <= keep:
-            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: keep - 1]
+            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: keep]
         else:
-            self.predictors = sorted(used, key=lambda c: c.accuracy)[: keep - 1]
+            self.predictors = sorted(used, key=lambda c: c.accuracy)[: keep]
     
     def match_state(self, state, c_len):
-        current_preds = []
+        self.current.clear()
         min_acc = max([c.accuracy for c in self.predictors])
         for c in self.predictors:
             if all([(c.condition[x] == state[x] or c.condition[x] == '2') for x in range(c_len)]):
                 if c.accuracy < min_acc:
-                    current_preds.clear()
-                    current_preds.append(c)
+                    self.current.clear()
+                    self.current.append(c)
                     min_acc = c.accuracy
                 elif c.accuracy == min_acc:
-                    current_preds.append(c)
-        return current_preds
+                    self.current.append(c)
     
     def new_genes_uf(self, p_len, a_len):
         while len(self.predictors) < p_len:

@@ -56,10 +56,23 @@ class TestPredictors(unittest.TestCase):
         self.assertEqual(len(self.p1.predictors), 10)
         self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.predictors)
 
-    def test_find_winners(self):
+    def test_find_winners1(self):
         for j in range(10):
             if j % 2:
                 self.p1.predictors[j].used = j
                 self.p1.predictors[j].accuracy = j / 100
         self.p1.find_winners(5)
-        print(self.p1.predictors)
+        for i in self.p1.predictors:
+            with self.subTest(i=i):
+                self.assertGreater(i.accuracy, 0)
+        
+    def test_find_winners2(self):
+        for j in range(10):
+            if j % 2:
+                self.p1.predictors[j].used = j
+                self.p1.predictors[j].accuracy = j / 100
+        self.p1.find_winners(3)
+        for i in self.p1.predictors:
+            with self.subTest(i=i):
+                self.assertGreater(i.accuracy, 0.3)
+        
