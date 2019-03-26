@@ -120,9 +120,19 @@ class Predictors:
             return child1, child2
 
         def check_chrom(self, c, p, pred_var, parent_var):
+            '''
+            If condition and action are the same, don't add the child
+            '''
             if c.condition != p.condition:
                 c.accuracy = pred_var
                 self.predictors.append(c)
             elif c.action != p.action:
                 c.accuracy = parent_var
                 self.predictors.append(c)
+
+        def check_chrom2(self, c, p, pred_var, parent_var):
+            '''
+            If condition and action are the same, add the child
+            '''
+            c.accuracy = pred_var if c.condition != p.condition else parent_var
+            self.predictors.append(c)

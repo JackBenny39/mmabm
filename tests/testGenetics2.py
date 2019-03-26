@@ -23,7 +23,7 @@ class TestChromosome(unittest.TestCase):
         self.assertEqual(len(self.c1.action), 5)
         self.assertTrue(x==0 or x==1 for x in self.c1.action)
         self.assertEqual(self.c1._strategy, int(self.c1.action[1:], 2)*(1 if int(self.c1.action[0]) else -1), 2)
-        self.assertEqual(self.c1._theta, 0.02)
+        self.assertEqual(self.c1.theta, 0.02)
         self.assertFalse(self.c1.used)
         self.assertFalse(self.c1.accuracy)
         self.assertEqual(len(self.c2.condition), 16)
@@ -31,7 +31,7 @@ class TestChromosome(unittest.TestCase):
         self.assertEqual(len(self.c2.action), 8)
         self.assertTrue(x==0 or x==1 for x in self.c2.action)
         self.assertEqual(self.c2._strategy, int(self.c2.action, 2))
-        self.assertEqual(self.c2._theta, 0.04)
+        self.assertEqual(self.c2.theta, 0.04)
         self.assertFalse(self.c1.used)
         self.assertFalse(self.c1.accuracy)
 
@@ -43,7 +43,7 @@ class TestChromosome(unittest.TestCase):
         actual = 1
         self.c1._update_accuracy(actual)
         self.assertEqual(self.c1.used, 1)
-        self.assertEqual(self.c1.accuracy, self.c1._theta * (actual - self.c1._strategy) ** 2)
+        self.assertEqual(self.c1.accuracy, self.c1.theta * (actual - self.c1._strategy) ** 2)
 
 
 class TestPredictors(unittest.TestCase):
