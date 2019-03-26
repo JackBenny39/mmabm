@@ -55,6 +55,7 @@ class TestPredictors(unittest.TestCase):
     def test_setUp(self):
         self.assertEqual(len(self.p1.predictors), 10)
         self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.predictors)
+        self.assertFalse(self.p1.current)
 
     def test_find_winners1(self):
         for j in range(10):
@@ -75,4 +76,43 @@ class TestPredictors(unittest.TestCase):
         for i in self.p1.predictors:
             with self.subTest(i=i):
                 self.assertGreater(i.accuracy, 0.3)
+
+    def test_match_state(self):
+        '''
+        With numpy random seed == 39, the Chromosomes are:
+        0. Chromosome(2222222222222222, 00000000, 0.02)
+        1. Chromosome(2221222222222222, 10100011, 0.02)
+        2. Chromosome(0222222121221222, 11000110, 0.02)
+        3. Chromosome(2222122022122222, 10100101, 0.02)
+        4. Chromosome(2220222022222222, 11101011, 0.02)
+        5. Chromosome(2221222222222202, 00011010, 0.02)
+        6. Chromosome(2222220021221202, 10000111, 0.02)
+        7. Chromosome(2122212222221221, 01000010, 0.02)
+        8. Chromosome(2122222222222222, 00000011, 0.02)
+        9. Chromosome(1222222222222222, 01100001, 0.02)
+
+        match_state chooses the Chromosome that matches the state 
+        and has the lowest accuracy
+
+        If the state is all 1: 1111111111111111, then
+        Chromosomes 0, 1, 7, 8, 9 all match
+        test 1: Set all Chromosome accuracy to j/100, then match_state chooses Chromosome 0
+        test 2: Set Chromosome 0 accuracy to 0.05, Chromosome 7 accuracy to 0.01, then
+        match state chooses Chromosomes 1 and 7.
+        '''
+        state = '1111111111111111'
+        c_len = 16
+        for j in range(10):
+            self.p1.predictors[j].used = 1
+            self.p1.predictors[j].accuracy = j / 100
+        self.p1.match_state(state, c_len)
+        self.assertEqual(len(self.p1.current), 1)
+        self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.current)
+        self.p1.predictors[0].accuracy = 0.05
+        self.p1.predictors[7].accuracy = 0.01
+        self.p1.match_state(state, c_len)
+        self.assertEqual(len(self.p1.current), 2)
+        self.assertIn(Chromosome('2221222222222222', '10100011', 0.02, symm=True), self.p1.current)
+        self.assertIn(Chromosome('2122212222221221', '01000010', 0.02, symm=True), self.p1.current)
+        
         

@@ -21,27 +21,28 @@ class Chromosome:
     def __init__(self, condition, action, theta, symm):
         self.condition = condition #''.join(str(x) for x in np.random.choice(np.arange(0, 3), condition_len, p=condition_probs))
         self.action = action # ''.join(str(x) for x in np.random.choice(np.arange(0, 2), action_len))
-        self._strategy = self._convert_action(symm) #int(self.action[1:], 2)*(1 if int(self.action[0]) else -1) if symm else int(self.action, 2)
+        self.symm = symm
+        self._strategy = self._convert_action() #int(self.action[1:], 2)*(1 if int(self.action[0]) else -1) if symm else int(self.action, 2)
         self.used = 0
         self.accuracy = 0
-        self._theta = theta
+        self.theta = theta
 
     def __repr__(self):
         class_name = type(self).__name__
-        return '{0}({1}, {2}, {3})'.format(class_name, self.condition, self.action, self._theta)
+        return '{0}({1}, {2}, {3}, {4})'.format(class_name, self.condition, self.action, self.theta, self.symm)
 
     def __str__(self):
-        return str(tuple([self.condition, self.action, self._strategy, self.used, self.accuracy, self._theta]))
+        return str(tuple([self.condition, self.action, self._strategy, self.used, self.accuracy, self.theta, self.symm]))
 
     def __eq__(self, other):
         return self.condition == other.condition and self.action == other.action
 
-    def _convert_action(self, symm):
-        return int(self.action[1:], 2)*(1 if int(self.action[0]) else -1) if symm else int(self.action, 2)
+    def _convert_action(self):
+        return int(self.action[1:], 2)*(1 if int(self.action[0]) else -1) if self.symm else int(self.action, 2)
 
     def _update_accuracy(self, actual):
         self.used = 1
-        self.accuracy = (1 - self._theta) * self.accuracy + self._theta * (actual - self._strategy) ** 2
+        self.accuracy = (1 - self.theta) * self.accuracy + self.theta * (actual - self._strategy) ** 2
 
 
 class Predictors:
@@ -81,11 +82,47 @@ class Predictors:
                 elif c.accuracy == min_acc:
                     self.current.append(c)
     
-    def new_genes_uf(self, p_len, a_len):
+    def new_genes_uf(self, p_len, a_len, a_mutate, c_cross, c_len, c_mutate):
+        pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < p_len:
             # Choose two parents - uniform selection
             p1, p2 = tuple(random.sample(self.predictors, 2))
+            parent_var = (p1.accuracy + p2.accuracy) / 2
             # Random uniform crossover for action
-            x = random.randrange(a_len)
-            c1_action = p1.action[:x] + p2.action[x:]
-            c2_action = p2.action[:x] + p1.action[x:]
+            c1_action, c2_action = self.cross(p1.action, p2.action, a_len)
+            # Random mutation with p = a_mutate for each gene (bit) in action
+            c1_action, c2_action = self.mutate(c1_action, c2_action, a_len, a_mutate, 2)
+            # Random uniform crossover for condition with p = c_cross
+            if random.random() < c_cross:
+                c1_condition, c2_condition = self.cross(p1.condition, condition, c_len)
+            else:
+                c1_condition = p1.condition
+                c2_condition = p2.condition
+            # Random mutation with p = c_mutate for each gene (bit) in condition
+            c1_condition, c2_condition = self.mutate(c1_condition, c2_condition, c_len, c_mutate, 3)
+            # Make the children Chromosomes and check for uniqueness
+            self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
+            self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
+
+        def mutate(self, str1, str2, str_len, mutate_prob, str_rng):
+            m = np.random.random_sample((2, str_len))
+            for j in range(str_len):
+                if m[0, j] < mutate_prob:
+                    str1 = str1[:j] + str(random.randrange(str_rng)) + str1[j+1:]
+                if m[1, j] < mutate_prob:
+                    str2 = str2[:j] + str(random.randrange(str_rng)) + str2[j+1:]
+            return str1, str2
+
+        def cross(self, str1, str2, str_len):
+            x = random.randrange(str_len)
+            child1 = str1[:x] + str2[x:]
+            child2 = str2[:x] + str1[x:]
+            return child1, child2
+
+        def check_chrom(self, c, p, pred_var, parent_var):
+            if c.condition != p.condition:
+                c.accuracy = pred_var
+                self.predictors.append(c)
+            elif c.action != p.action:
+                c.accuracy = parent_var
+                self.predictors.append(c)
