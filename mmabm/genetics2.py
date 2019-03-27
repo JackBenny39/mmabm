@@ -94,7 +94,7 @@ class Predictors:
             c1_action, c2_action = self.mutate(c1_action, c2_action, a_len, a_mutate, 2)
             # Random uniform crossover for condition with p = c_cross
             if random.random() < c_cross:
-                c1_condition, c2_condition = self.cross(p1.condition, condition, c_len)
+                c1_condition, c2_condition = self.cross(p1.condition, p2.condition, c_len)
             else:
                 c1_condition = p1.condition
                 c2_condition = p2.condition

@@ -154,3 +154,65 @@ class TestPredictors(unittest.TestCase):
         c3, c4 = self.p1.mutate(str3, str4, str_len, p_mutate, str_rng)
         self.assertEqual(c3, '0120120120')
         self.assertEqual(c4, '2101102102')
+
+    def test_cross(self):
+        '''
+        With random seed == 39, crossover occurs between 2 & 3
+        '''
+        str1 = '1111111111'
+        str2 = '0000000000'
+        str_len = len(str1)
+        random.seed(39)
+        c1, c2 = self.p1.cross(str1, str2, str_len)
+        self.assertEqual(c1, '1110000000')
+        self.assertEqual(c2, '0001111111')
+
+    def test_check_chrom(self):
+        pred_var = 1
+        parent_var = 2
+        # Conditions not equal -> use pred_var and append
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p = Chromosome('2222222222', '00000', 0.02, symm=True)
+        c = Chromosome('2222022220', '00001', 0.02, symm=True)
+        self.p1.check_chrom(c, p, pred_var, parent_var)
+        self.assertEqual(self.p1.predictors[0].accuracy, pred_var)
+        # Conditions equal, actions not equal -> use parent_var and append
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p.condition = '2222022220'
+        p.action = '00000'
+        self.p1.check_chrom(c, p, pred_var, parent_var)
+        self.assertEqual(self.p1.predictors[0].accuracy, parent_var)
+        # Conditions equal, actions equal -> no append
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p.condition = '2222022220'
+        p.action = '00001'
+        self.p1.check_chrom(c, p, pred_var, parent_var)
+        self.assertFalse(self.p1.predictors)
+
+    def test_check_chrom2(self):
+        pred_var = 1
+        parent_var = 2
+        # Conditions not equal -> use pred_var and append
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p = Chromosome('2222222222', '00000', 0.02, symm=True)
+        c = Chromosome('2222022220', '00001', 0.02, symm=True)
+        self.p1.check_chrom2(c, p, pred_var, parent_var)
+        self.assertEqual(self.p1.predictors[0].accuracy, pred_var)
+        # Conditions equal, actions not equal -> use parent_var and append
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p.condition = '2222022220'
+        p.action = '00000'
+        self.p1.check_chrom2(c, p, pred_var, parent_var)
+        self.assertEqual(self.p1.predictors[0].accuracy, parent_var)
+        # Conditions equal, actions equal -> use parent_var, append anyway
+        self.p1.predictors.clear()
+        self.assertFalse(self.p1.predictors)
+        p.condition = '2222022220'
+        p.action = '00001'
+        self.p1.check_chrom2(c, p, pred_var, parent_var)
+        self.assertEqual(self.p1.predictors[0].accuracy, parent_var)
