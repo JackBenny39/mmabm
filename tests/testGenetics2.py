@@ -1,3 +1,4 @@
+import random
 import unittest
 
 import numpy as np
@@ -115,4 +116,41 @@ class TestPredictors(unittest.TestCase):
         self.assertIn(Chromosome('2221222222222222', '10100011', 0.02, symm=True), self.p1.current)
         self.assertIn(Chromosome('2122212222221221', '01000010', 0.02, symm=True), self.p1.current)
         
-        
+    def test_mutate(self):
+        '''
+        With numpy random seed == 39, random_sample((2, 10)) yields:
+        [[0.54688916 0.79789902 0.82040188 0.12204987 0.60200201 
+        0.52551458 0.46390841 0.47144574 0.63271284 0.92566388]
+        [0.81550292 0.94444175 0.91958514 0.4148308  0.82581196 
+        0.94626012 0.62804605 0.25226979 0.5923509  0.86040381]]
+        For 0 or 1:
+        If p_mutate == .42, then position 3 will be selected for the first string
+        and positions 3 and 7 selected for the second string
+        With random seed == 39, string 1 position 3 is 0, 
+        string 2 position 3 is 1, position 7 is 1
+        For 0, 1 or 2:
+        If p_mutate == .42, then position 3 will be selected for the first string
+        and positions 3 and 7 selected for the second string
+        With random seed == 39, string 1 position 3 is 0, 
+        string 2 position 3 is 1, position 7 is 1
+        '''
+        str1 = '1111111111'
+        str2 = '0000000000'
+        str_rng = 2
+        str_len = len(str2)
+        p_mutate = 0.42
+        np.random.seed(39)
+        random.seed(39)
+        c1, c2 = self.p1.mutate(str1, str2, str_len, p_mutate, str_rng)
+        self.assertEqual(c1, '1110111111')
+        self.assertEqual(c2, '0001000100')
+        str3 = '0122120120'
+        str4 = '2102102102'
+        str_rng = 3
+        str_len = len(str3)
+        p_mutate = 0.42
+        np.random.seed(39)
+        random.seed(39)
+        c3, c4 = self.p1.mutate(str3, str4, str_len, p_mutate, str_rng)
+        self.assertEqual(c3, '0120120120')
+        self.assertEqual(c4, '2101102102')

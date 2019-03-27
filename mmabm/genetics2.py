@@ -104,35 +104,35 @@ class Predictors:
             self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
             self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
-        def mutate(self, str1, str2, str_len, mutate_prob, str_rng):
-            m = np.random.random_sample((2, str_len))
-            for j in range(str_len):
-                if m[0, j] < mutate_prob:
-                    str1 = str1[:j] + str(random.randrange(str_rng)) + str1[j+1:]
-                if m[1, j] < mutate_prob:
-                    str2 = str2[:j] + str(random.randrange(str_rng)) + str2[j+1:]
-            return str1, str2
+    def mutate(self, str1, str2, str_len, mutate_prob, str_rng):
+        m = np.random.random_sample((2, str_len))
+        for j in range(str_len):
+            if m[0, j] < mutate_prob:
+                str1 = str1[:j] + str(random.randrange(str_rng)) + str1[j+1:]
+            if m[1, j] < mutate_prob:
+                str2 = str2[:j] + str(random.randrange(str_rng)) + str2[j+1:]
+        return str1, str2
 
-        def cross(self, str1, str2, str_len):
-            x = random.randrange(str_len)
-            child1 = str1[:x] + str2[x:]
-            child2 = str2[:x] + str1[x:]
-            return child1, child2
+    def cross(self, str1, str2, str_len):
+        x = random.randrange(str_len)
+        child1 = str1[:x] + str2[x:]
+        child2 = str2[:x] + str1[x:]
+        return child1, child2
 
-        def check_chrom(self, c, p, pred_var, parent_var):
-            '''
-            If condition and action are the same, don't add the child
-            '''
-            if c.condition != p.condition:
-                c.accuracy = pred_var
-                self.predictors.append(c)
-            elif c.action != p.action:
-                c.accuracy = parent_var
-                self.predictors.append(c)
-
-        def check_chrom2(self, c, p, pred_var, parent_var):
-            '''
-            If condition and action are the same, add the child
-            '''
-            c.accuracy = pred_var if c.condition != p.condition else parent_var
+    def check_chrom(self, c, p, pred_var, parent_var):
+        '''
+        If condition and action are the same, don't add the child
+        '''
+        if c.condition != p.condition:
+            c.accuracy = pred_var
             self.predictors.append(c)
+        elif c.action != p.action:
+            c.accuracy = parent_var
+            self.predictors.append(c)
+
+    def check_chrom2(self, c, p, pred_var, parent_var):
+        '''
+        If condition and action are the same, add the child
+        '''
+        c.accuracy = pred_var if c.condition != p.condition else parent_var
+        self.predictors.append(c)
