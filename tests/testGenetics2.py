@@ -216,3 +216,24 @@ class TestPredictors(unittest.TestCase):
         p.action = '00001'
         self.p1.check_chrom2(c, p, pred_var, parent_var)
         self.assertEqual(self.p1.predictors[0].accuracy, parent_var)
+
+    def test_new_genes_uf(self):
+        '''
+        Trim predictors to 5
+        with seeds set to 39, Chromosomes 1 and 2 are selected 
+        and 2 suitable children result
+        '''
+        random.seed(39)
+        np.random.seed(39)
+        p_len = 7
+        a_len = len(self.p1.predictors[0].action)
+        a_mutate = 0.05
+        c_cross = 0.3
+        c_len = len(self.p1.predictors[0].condition)
+        c_mutate = 0.05
+        self.p1.predictors = self.p1.predictors[:5]
+        self.assertEqual(len(self.p1.predictors), 5)
+        self.p1.new_genes_uf(p_len, a_len, a_mutate, c_cross, c_len, c_mutate)
+        self.assertEqual(len(self.p1.predictors), 7)
+        self.assertEqual(self.p1.predictors[5], Chromosome('2221122121221222', '10100010', 0.02, True))
+        self.assertEqual(self.p1.predictors[6], Chromosome('0222222222222222', '11000111', 0.02, True))
