@@ -104,6 +104,28 @@ class Predictors:
             self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
             self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
+    def new_genes_wf(self, p_len, weights, a_len, a_mutate, c_cross, c_len, c_mutate):
+        pred_var = np.mean([p.accuracy for p in self.predictors])
+        while len(self.predictors) < p_len:
+            # Choose two parents - weighted selection
+            p1, p2 = tuple(random.choices(self.predictors, cum_weights=weights, k=2))
+            parent_var = (p1.accuracy + p2.accuracy) / 2
+            # Random uniform crossover for action
+            c1_action, c2_action = self.cross(p1.action, p2.action, a_len)
+            # Random mutation with p = a_mutate for each gene (bit) in action
+            c1_action, c2_action = self.mutate(c1_action, c2_action, a_len, a_mutate, 2)
+            # Random uniform crossover for condition with p = c_cross
+            if random.random() < c_cross:
+                c1_condition, c2_condition = self.cross(p1.condition, p2.condition, c_len)
+            else:
+                c1_condition = p1.condition
+                c2_condition = p2.condition
+            # Random mutation with p = c_mutate for each gene (bit) in condition
+            c1_condition, c2_condition = self.mutate(c1_condition, c2_condition, c_len, c_mutate, 3)
+            # Make the children Chromosomes and check for uniqueness
+            self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
+            self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
+
     def mutate(self, str1, str2, str_len, mutate_prob, str_rng):
         m = np.random.random_sample((2, str_len))
         for j in range(str_len):

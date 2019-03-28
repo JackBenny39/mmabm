@@ -237,3 +237,25 @@ class TestPredictors(unittest.TestCase):
         self.assertEqual(len(self.p1.predictors), 7)
         self.assertEqual(self.p1.predictors[5], Chromosome('2221122121221222', '10100010', 0.02, True))
         self.assertEqual(self.p1.predictors[6], Chromosome('0222222222222222', '11000111', 0.02, True))
+
+    def test_new_genes_wf(self):
+        '''
+        Trim predictors to 5
+        with seeds set to 39, Chromosomes 0 and 1 are selected 
+        and 2 suitable children result
+        '''
+        random.seed(39)
+        np.random.seed(39)
+        p_len = 7
+        a_len = len(self.p1.predictors[0].action)
+        a_mutate = 0.05
+        c_cross = 0.3
+        c_len = len(self.p1.predictors[0].condition)
+        c_mutate = 0.05
+        self.p1.predictors = self.p1.predictors[:5]
+        weights = [0.333, 0.6, 0.8, 0.933, 1]
+        self.assertEqual(len(self.p1.predictors), 5)
+        self.p1.new_genes_wf(p_len, weights, a_len, a_mutate, c_cross, c_len, c_mutate)
+        self.assertEqual(len(self.p1.predictors), 7)
+        self.assertEqual(self.p1.predictors[5], Chromosome('2221222222222222', '00000011', 0.02, True))
+        self.assertEqual(self.p1.predictors[6], Chromosome('2222221222222222', '10100000', 0.02, True))
