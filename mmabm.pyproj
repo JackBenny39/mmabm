@@ -26,6 +26,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="mmabm\learner.py" />
+    <Compile Include="mmabm\learner2.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="mmabm\localbook.py">
       <SubType>Code</SubType>
     </Compile>

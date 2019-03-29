@@ -23,7 +23,7 @@ class TestChromosome(unittest.TestCase):
         self.assertTrue(x==0 or x==1 or x==2 for x in self.c1.condition)
         self.assertEqual(len(self.c1.action), 5)
         self.assertTrue(x==0 or x==1 for x in self.c1.action)
-        self.assertEqual(self.c1._strategy, int(self.c1.action[1:], 2)*(1 if int(self.c1.action[0]) else -1), 2)
+        self.assertEqual(self.c1.strategy, int(self.c1.action[1:], 2)*(1 if int(self.c1.action[0]) else -1), 2)
         self.assertEqual(self.c1.theta, 0.02)
         self.assertFalse(self.c1.used)
         self.assertFalse(self.c1.accuracy)
@@ -31,7 +31,7 @@ class TestChromosome(unittest.TestCase):
         self.assertTrue(x==0 or x==1 or x==2 for x in self.c2.condition)
         self.assertEqual(len(self.c2.action), 8)
         self.assertTrue(x==0 or x==1 for x in self.c2.action)
-        self.assertEqual(self.c2._strategy, int(self.c2.action, 2))
+        self.assertEqual(self.c2.strategy, int(self.c2.action, 2))
         self.assertEqual(self.c2.theta, 0.04)
         self.assertFalse(self.c1.used)
         self.assertFalse(self.c1.accuracy)
@@ -42,28 +42,52 @@ class TestChromosome(unittest.TestCase):
     def test_update_accuracy(self):
         # with seed == 39, c1._strategy == 4
         actual = 1
-        self.c1._update_accuracy(actual)
+        self.c1.update_accuracy(actual)
         self.assertEqual(self.c1.used, 1)
-        self.assertEqual(self.c1.accuracy, self.c1.theta * (actual - self.c1._strategy) ** 2)
+        self.assertEqual(self.c1.accuracy, self.c1.theta * (actual - self.c1.strategy) ** 2)
 
 
 class TestPredictors(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(39)
-        self.p1 = Predictors(10, 16, 8, [0.1, 0.1, 0.8], 0.02, symm=True)
+        num_chroms = 10
+        condition_len = 16
+        action_len = 8
+        condition_probs = [0.1, 0.1, 0.8]
+        action_mutate_p = 0.42
+        condition_cross_p = 0.3
+        condition_mutate_p = 0.42
+        theta = 0.02
+        keep_pct = 0.5
+        symm=True
+        weights = False
+        self.p1 = Predictors(num_chroms, condition_len, action_len, condition_probs, 
+                             action_mutate_p, condition_cross_p, condition_mutate_p, 
+                             theta, keep_pct, symm, weights)
+        weights = True
+        self.p2 = Predictors(num_chroms, condition_len, action_len, condition_probs, 
+                             action_mutate_p, condition_cross_p, condition_mutate_p, 
+                             theta, keep_pct, symm, weights)
 
     def test_setUp(self):
         self.assertEqual(len(self.p1.predictors), 10)
-        self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.predictors)
+        self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, True), self.p1.predictors)
         self.assertFalse(self.p1.current)
+        print(self.p1.new_genes)
+        self.assertEqual(len(self.p2.predictors), 10)
+        self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, True), self.p2.predictors)
+        self.assertFalse(self.p2.current)
+        # Also tests _make_weights()
+        self.assertEqual(self.p2._weights[-1], 1)
+        print(self.p2.new_genes)
 
     def test_find_winners1(self):
         for j in range(10):
             if j % 2:
                 self.p1.predictors[j].used = j
                 self.p1.predictors[j].accuracy = j / 100
-        self.p1.find_winners(5)
+        self.p1.find_winners()
         for i in self.p1.predictors:
             with self.subTest(i=i):
                 self.assertGreater(i.accuracy, 0)
@@ -73,7 +97,8 @@ class TestPredictors(unittest.TestCase):
             if j % 2:
                 self.p1.predictors[j].used = j
                 self.p1.predictors[j].accuracy = j / 100
-        self.p1.find_winners(3)
+        self.p1._keep = 3
+        self.p1.find_winners()
         for i in self.p1.predictors:
             with self.subTest(i=i):
                 self.assertGreater(i.accuracy, 0.3)
@@ -102,16 +127,15 @@ class TestPredictors(unittest.TestCase):
         match state chooses Chromosomes 1 and 7.
         '''
         state = '1111111111111111'
-        c_len = 16
         for j in range(10):
             self.p1.predictors[j].used = 1
             self.p1.predictors[j].accuracy = j / 100
-        self.p1.match_state(state, c_len)
+        self.p1.match_state(state)
         self.assertEqual(len(self.p1.current), 1)
         self.assertIn(Chromosome('2' * 16, '0' * 8, 0.02, symm=True), self.p1.current)
         self.p1.predictors[0].accuracy = 0.05
         self.p1.predictors[7].accuracy = 0.01
-        self.p1.match_state(state, c_len)
+        self.p1.match_state(state)
         self.assertEqual(len(self.p1.current), 2)
         self.assertIn(Chromosome('2221222222222222', '10100011', 0.02, symm=True), self.p1.current)
         self.assertIn(Chromosome('2122212222221221', '01000010', 0.02, symm=True), self.p1.current)
@@ -225,15 +249,14 @@ class TestPredictors(unittest.TestCase):
         '''
         random.seed(39)
         np.random.seed(39)
-        p_len = 7
-        a_len = len(self.p1.predictors[0].action)
-        a_mutate = 0.05
-        c_cross = 0.3
-        c_len = len(self.p1.predictors[0].condition)
-        c_mutate = 0.05
+        self.p1._num_chroms = 7
+        self.p1._action_mutate_p = 0.05
+        self.p1._condition_cross_p = 0.3
+        self.p1._condition_mutate_p = 0.05
         self.p1.predictors = self.p1.predictors[:5]
         self.assertEqual(len(self.p1.predictors), 5)
-        self.p1.new_genes_uf(p_len, a_len, a_mutate, c_cross, c_len, c_mutate)
+        #self.p1._new_genes_uf()
+        self.p1.new_genes()
         self.assertEqual(len(self.p1.predictors), 7)
         self.assertEqual(self.p1.predictors[5], Chromosome('2221122121221222', '10100010', 0.02, True))
         self.assertEqual(self.p1.predictors[6], Chromosome('0222222222222222', '11000111', 0.02, True))
@@ -246,16 +269,15 @@ class TestPredictors(unittest.TestCase):
         '''
         random.seed(39)
         np.random.seed(39)
-        p_len = 7
-        a_len = len(self.p1.predictors[0].action)
-        a_mutate = 0.05
-        c_cross = 0.3
-        c_len = len(self.p1.predictors[0].condition)
-        c_mutate = 0.05
-        self.p1.predictors = self.p1.predictors[:5]
-        weights = [0.333, 0.6, 0.8, 0.933, 1]
-        self.assertEqual(len(self.p1.predictors), 5)
-        self.p1.new_genes_wf(p_len, weights, a_len, a_mutate, c_cross, c_len, c_mutate)
-        self.assertEqual(len(self.p1.predictors), 7)
-        self.assertEqual(self.p1.predictors[5], Chromosome('2221222222222222', '00000011', 0.02, True))
-        self.assertEqual(self.p1.predictors[6], Chromosome('2222221222222222', '10100000', 0.02, True))
+        self.p2._num_chroms = 7
+        self.p2._action_mutate_p = 0.05
+        self.p2._condition_cross_p = 0.3
+        self.p2._condition_mutate_p = 0.05
+        self.p2._weights = [0.333, 0.6, 0.8, 0.933, 1]
+        self.p2.predictors = self.p2.predictors[:5]
+        self.assertEqual(len(self.p2.predictors), 5)
+        #self.p2._new_genes_wf()
+        self.p2.new_genes()
+        self.assertEqual(len(self.p2.predictors), 7)
+        self.assertEqual(self.p2.predictors[5], Chromosome('1220222222222222', '00010100', 0.02, True))
+        self.assertEqual(self.p2.predictors[6], Chromosome('2222221222222222', '01100000', 0.02, True))
