@@ -41,6 +41,9 @@
     <Compile Include="mmabm\runner_wrap.py" />
     <Compile Include="mmabm\shared.py" />
     <Compile Include="mmabm\signal.py" />
+    <Compile Include="mmabm\signal2.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="mmabm\trader.py" />
     <Compile Include="mmabm\__init__.py" />
     <Compile Include="setup.py" />
@@ -51,6 +54,9 @@
     <Compile Include="tests\testOrderbook.py" />
     <Compile Include="tests\testRunnerParts.py" />
     <Compile Include="tests\testSignal.py" />
+    <Compile Include="tests\testSignal2.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="tests\testTrader.py" />
     <Compile Include="tests\__init__.py" />
   </ItemGroup>
