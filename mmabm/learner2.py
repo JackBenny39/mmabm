@@ -1,7 +1,9 @@
 
+from mmabm.genetics2 import Predictors
 from mmabm.localbook import Localbook
-from mmabm.models import order_imbalance
 from mmabm.shared import Side, OType, TType
+
+from mmabm.settings import *
 
 
 class MarketMakerL:
@@ -19,10 +21,19 @@ class MarketMakerL:
         self.quote_collector = []
         self.cancel_collector = []
 
-        self._oi = order_imbalance()
+        self._oi = Predictors(OI_NUM_CHROMS, OI_COND_LEN, OI_ACTION_LEN, OI_COND_PROBS, 
+                              OI_ACTION_MUTATE_P, OI_COND_CROSS_P, OI_COND_MUTATE_P, 
+                              OI_THETA, OI_KEEP_PCT, OI_SYMM, OI_WEIGHTS)
 
         self._genetic_int = g_int
         self.signal_collector = []
+
+    def __repr__(self):
+        class_name = type(self).__name__
+        return '{0}({1}, {2}, {3})'.format(class_name, self.trader_id, self._maxq, self.arrInt)
+    
+    def __str__(self):
+        return str(tuple([self.trader_id, self._maxq, self.arrInt]))
 
     def seed_book(self, step, ask, bid):
         q = self._make_add_quote(step, Side.BID, bid, self._maxq)

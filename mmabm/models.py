@@ -39,7 +39,7 @@ def order_imbalance():
     '''
     num_chroms = 100
     condition_len = 24
-    action_len = 16
+    action_len = 6
     condition_probs = [0.05, 0.05, 0.9]
     action_mutate_p = 0.06
     condition_cross_p = 0.1
