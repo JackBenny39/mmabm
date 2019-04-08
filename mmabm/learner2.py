@@ -39,12 +39,12 @@ class MarketMakerL:
         q = self._make_add_quote(step, Side.BID, bid, self._maxq)
         self.quote_collector.append(q)
         self._localbook.add_order(q)
-        self._bid = bid
+        #self._bid = bid
         q = self._make_add_quote(step, Side.ASK, ask, self._maxq)
         self.quote_collector.append(q)
         self._localbook.add_order(q)
-        self._ask = ask
-        self._mid = (ask+bid)/2
+        #self._ask = ask
+        #self._mid = (ask+bid)/2
 
     # Make Orders
     def _make_add_quote(self, time, side, price, quantity):
@@ -69,4 +69,9 @@ class MarketMakerL:
         '''
 
         # Update predictor accuracy
-        self._oi.update_accuracies(actual) # need actual
+        self._oi.update_accuracies(signal[0]) # actual oi is signal[0]
+
+        # run genetics if it is time
+        if not step % self._genetic_int:
+            self._genetics_us()
+            #self._genetics_ws()

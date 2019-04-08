@@ -9,14 +9,14 @@ import mmabm.trader as trader
 
 from mmabm.settings import *
 from mmabm.shared import Side, OType, TType
-from mmabm.signal2 import OrderSignal
+from mmabm.signal2 import ImbalanceSignal
 
 
 class Runner:
     
     def __init__(self, h5filename='test.h5', mpi=MPI, prime1=PRIME1, run_steps=RUN_STEPS, write_interval=WRITE_INTERVAL, **kwargs):
         self.exchange = orderbook.Orderbook()
-        self.oi_signal = OrderSignal(OI_SIGNAL, OI_HIST_LEN)
+        self.oi_signal = ImbalanceSignal(OI_SIGNAL, OI_HIST_LEN)
         self.h5filename = h5filename
         self.mpi = mpi
         self.run_steps = run_steps + 1
@@ -135,6 +135,65 @@ class Runner:
         top_of_book = self.exchange.report_top_of_book(step)
         #self.signal.make_mid_signal(step, top_of_book['best_bid'], top_of_book['best_ask'])
 
+    def _make_signals(self, step):
+        self.oi_signal.make_signal(step)
+        return self.oi_signal.v
+
+    def doCancels(self, trader):
+        for c in trader.cancel_collector:
+            self.exchange.process_order(c)
+                    
+    def confirmTrades(self):
+        for c in self.exchange.confirm_trade_collector:
+            contra_side = self.liquidity_providers[c['trader']]
+            contra_side.confirm_trade_local(c)
+            #print('Trade', c['timestamp'], ': ', c['price'])
+            #self.signal.arrv += c['quantity']
+            # side of the resting order: ASK -> taker buy
+            self.oi_signal.update_v(c['quantity'] * (1 if c['side'] == Side.ASK else -1))
+
+    def runMcs(self, prime1, write_interval):
+        top_of_book = self.exchange.report_top_of_book(prime1)
+        for current_time in range(prime1, self.run_steps):
+            traders = random.sample(self.traders, self.num_traders)
+            for t in traders:
+                if t.trader_type == TType.Provider:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                    t.bulk_cancel(current_time)
+                    if t.cancel_collector:
+                        self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                elif t.trader_type == TType.MarketMaker:
+                    if not current_time % t.arrInt:
+                        t.process_signal1(current_time, (self._make_signals(current_time), top_of_book['best_bid'], top_of_book['best_ask']))
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
+                        for q in t.quote_collector:
+                            self.exchange.process_order(q)
+                        if t.cancel_collector: # need to check?
+                            self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        self.signal.reset_current()
+                elif t.trader_type == TType.Taker:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
+                        if self.exchange.traded:
+                            self.confirmTrades()
+                            top_of_book = self.exchange.report_top_of_book(current_time)
+                else:
+                    if current_time in t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time))
+                        if self.exchange.traded:
+                            self.confirmTrades()
+                            top_of_book = self.exchange.report_top_of_book(current_time)
+            if not current_time % write_interval:
+                self.exchange.order_history_to_h5(self.h5filename)
+                self.exchange.sip_to_h5(self.h5filename)
+
 
 
 
@@ -153,7 +212,7 @@ if __name__ == '__main__':
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file)
-        print(market1.liquidity_providers[9999])
+        print(market1.exchange.report_top_of_book(20))
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
 

@@ -4,7 +4,7 @@ from math import log
 from statistics import pstdev
 
 
-class OrderSignal:
+class ImbalanceSignal:
     '''
     Orders-based Signals
     '''
@@ -19,11 +19,19 @@ class OrderSignal:
         self._values = inputs
         self.str = None
 
+    def update_v(self, value):
+        self.v += value
+        
     def make_history(self, step):
         self.history[step % self._hist_len] = self.v
 
-    def make_part_str(self, val, op, start, stop):
-        return ['1' if op(val, v) else '0' for v in self._values[start:stop]]
+    def make_signal(self, step):
+        sum_hist = sum(self.make_history(step))
+        oi_list = ['1' if sum_hist <= v else '0' for v in self._values[:6]]
+        oi_list.extend(['1' if sum_hist >= v else '0' for v in self._values[6:12]])
+        oi_list.extend(['1' if self.v <= v else '0' for v in self._values[12:18]])
+        oi_list.extend(['1' if self.v >= v else '0' for v in self._values[18:]])
+        self.str = ''.join(oi_list)
     
     def reset_current(self):
         self.v = 0
@@ -52,14 +60,15 @@ class RetSignal:
         return pstdev(self.history)
 
 
-def make_oi_signal(signal, step):
-    signal.make_history(step)
-    sum_hist = sum(signal.history)
-    oi_list = signal.make_part_str(sum_hist, operator.le, 0, 6)
-    oi_list.extend(signal.make_part_str(sum_hist, operator.ge, 6, 12))
-    oi_list.extend(signal.make_part_str(signal.v, operator.le, 12, 18))
-    oi_list.extend(signal.make_part_str(signal.v, operator.ge, 18, 24))
-    signal.str = ''.join(oi_list)
+def make_oi_str(v1, v2, values):
+    oi_list = signal.make_part_str(v1, operator.le, values, 0, 6)
+    oi_list.extend(signal.make_part_str(v1, operator.ge, values, 6, 12))
+    oi_list.extend(signal.make_part_str(v2, operator.le, values, 12, 18))
+    oi_list.extend(signal.make_part_str(v2, operator.ge, values, 18, 24))
+    return ''.join(oi_list)
+
+def make_part_str(val, op, values, start, stop):
+    return ['1' if op(val, v) else '0' for v in values[start:stop]]
 
 def make_arr_signal(signal, step):
     signal.make_history(step)
