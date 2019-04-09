@@ -171,13 +171,13 @@ class Runner:
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask']) # <-- Here, 20190410
                         for q in t.quote_collector:
                             self.exchange.process_order(q)
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        self.signal.reset_current()
+                        self.signal.reset_current() # < -- a general self._reset_signals here?
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))

@@ -64,10 +64,10 @@ class Predictors:
         self._make_predictors(condition_probs, theta, symm)
         self._keep = int(keep_pct * num_chroms)
         if not weights:
-            self.new_genes = self._new_genes_uf
+            self.new_genes = self.new_genes_uf
         else:
             self._weights = self._make_weights()
-            self.new_genes = self._new_genes_wf
+            self.new_genes = self.new_genes_wf
         self.current = []
 
     def _make_predictors(self, condition_probs, theta, symm):
@@ -82,13 +82,6 @@ class Predictors:
         denom = sum(ranger)
         numer = reversed(ranger)
         return np.cumsum([k/denom for k in numer])
-    
-    def find_winners(self):
-        used = [c for c in self.predictors if c.used]
-        if len(used) <= self._keep:
-            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: self._keep]
-        else:
-            self.predictors = sorted(used, key=lambda c: c.accuracy)[: self._keep]
     
     def match_state(self, state):
         self.current.clear()
@@ -109,51 +102,60 @@ class Predictors:
         for c in self.current:
             c.update_accuracy(actual)
     
-    def _new_genes_uf(self):
+    def new_genes_uf(self):
+        self._find_winners()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - uniform selection
             p1, p2 = tuple(random.sample(self.predictors, 2))
             parent_var = (p1.accuracy + p2.accuracy) / 2
             # Random uniform crossover for action
-            c1_action, c2_action = self.cross(p1.action, p2.action, self._action_len)
+            c1_action, c2_action = self._cross(p1.action, p2.action, self._action_len)
             # Random mutation with p = a_mutate for each gene (bit) in action
-            c1_action, c2_action = self.mutate(c1_action, c2_action, self._action_len, self._action_mutate_p, 2)
+            c1_action, c2_action = self._mutate(c1_action, c2_action, self._action_len, self._action_mutate_p, 2)
             # Random uniform crossover for condition with p = c_cross
             if random.random() < self._condition_cross_p:
-                c1_condition, c2_condition = self.cross(p1.condition, p2.condition, self._condition_len)
+                c1_condition, c2_condition = self._cross(p1.condition, p2.condition, self._condition_len)
             else:
                 c1_condition = p1.condition
                 c2_condition = p2.condition
             # Random mutation with p = c_mutate for each gene (bit) in condition
-            c1_condition, c2_condition = self.mutate(c1_condition, c2_condition, self._condition_len, self._condition_mutate_p, 3)
+            c1_condition, c2_condition = self._mutate(c1_condition, c2_condition, self._condition_len, self._condition_mutate_p, 3)
             # Make the children Chromosomes and check for uniqueness
-            self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
-            self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
+            self._check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
+            self._check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
-    def _new_genes_wf(self):
+    def new_genes_wf(self):
+        self._find_winners()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - weighted selection
             p1, p2 = tuple(random.choices(self.predictors, cum_weights=self._weights, k=2))
             parent_var = (p1.accuracy + p2.accuracy) / 2
             # Random uniform crossover for action
-            c1_action, c2_action = self.cross(p1.action, p2.action, self._action_len)
+            c1_action, c2_action = self._cross(p1.action, p2.action, self._action_len)
             # Random mutation with p = a_mutate for each gene (bit) in action
-            c1_action, c2_action = self.mutate(c1_action, c2_action, self._action_len, self._action_mutate_p, 2)
+            c1_action, c2_action = self._mutate(c1_action, c2_action, self._action_len, self._action_mutate_p, 2)
             # Random uniform crossover for condition with p = c_cross
             if random.random() < self._condition_cross_p:
-                c1_condition, c2_condition = self.cross(p1.condition, p2.condition, self._condition_len)
+                c1_condition, c2_condition = self._cross(p1.condition, p2.condition, self._condition_len)
             else:
                 c1_condition = p1.condition
                 c2_condition = p2.condition
             # Random mutation with p = c_mutate for each gene (bit) in condition
-            c1_condition, c2_condition = self.mutate(c1_condition, c2_condition, self._condition_len, self._condition_mutate_p, 3)
+            c1_condition, c2_condition = self._mutate(c1_condition, c2_condition, self._condition_len, self._condition_mutate_p, 3)
             # Make the children Chromosomes and check for uniqueness
-            self.check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
-            self.check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
+            self._check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
+            self._check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
-    def mutate(self, str1, str2, str_len, mutate_prob, str_rng):
+    def _find_winners(self):
+        used = [c for c in self.predictors if c.used]
+        if len(used) <= self._keep:
+            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: self._keep]
+        else:
+            self.predictors = sorted(used, key=lambda c: c.accuracy)[: self._keep]
+    
+    def _mutate(self, str1, str2, str_len, mutate_prob, str_rng):
         m = np.random.random_sample((2, str_len))
         for j in range(str_len):
             if m[0, j] < mutate_prob:
@@ -162,13 +164,13 @@ class Predictors:
                 str2 = str2[:j] + str(random.randrange(str_rng)) + str2[j+1:]
         return str1, str2
 
-    def cross(self, str1, str2, str_len):
+    def _cross(self, str1, str2, str_len):
         x = random.randrange(str_len)
         child1 = str1[:x] + str2[x:]
         child2 = str2[:x] + str1[x:]
         return child1, child2
 
-    def check_chrom(self, c, p, pred_var, parent_var):
+    def _check_chrom(self, c, p, pred_var, parent_var):
         '''
         If condition and action are the same, don't add the child
         '''
@@ -179,7 +181,7 @@ class Predictors:
             c.accuracy = parent_var
             self.predictors.append(c)
 
-    def check_chrom2(self, c, p, pred_var, parent_var):
+    def _check_chrom2(self, c, p, pred_var, parent_var):
         '''
         If condition and action are the same, add the child
         '''
