@@ -14,7 +14,7 @@ class ImbalanceSignal:
         Constructor
         '''
         self.v = 0
-        self.history = [0] * hist_len
+        self._history = [0] * hist_len
         self._hist_len = hist_len
         self._values = inputs
         self.str = None
@@ -22,11 +22,12 @@ class ImbalanceSignal:
     def update_v(self, value):
         self.v += value
         
-    def make_history(self, step):
-        self.history[step % self._hist_len] = self.v
+    def _make_history(self, step):
+        self._history[step % self._hist_len] = self.v
 
     def make_signal(self, step):
-        sum_hist = sum(self.make_history(step))
+        self._make_history(step)
+        sum_hist = sum(self._history)
         oi_list = ['1' if sum_hist <= v else '0' for v in self._values[:6]]
         oi_list.extend(['1' if sum_hist >= v else '0' for v in self._values[6:12]])
         oi_list.extend(['1' if self.v <= v else '0' for v in self._values[12:18]])
@@ -35,6 +36,8 @@ class ImbalanceSignal:
     
     def reset_current(self):
         self.v = 0
+
+
 
 
 class RetSignal:
