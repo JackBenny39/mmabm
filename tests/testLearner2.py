@@ -1,4 +1,4 @@
-#import random
+import random
 import unittest
 
 #import numpy as np
@@ -79,3 +79,61 @@ class TestMarketMakerL(unittest.TestCase):
         self.l1.cumulate_cashflow(7)
         self.assertDictEqual(self.l1.cash_flow_collector[0], {'mmid': 3001, 'timestamp': 7,
                              'cash_flow': 100, 'delta_inv': -5})
+
+    def test_update_midpoint(self):
+        self.l1._update_midpoint(999, 1001)
+        self.assertEqual(self.l1._mid, 1000)
+
+    def test_make_spread(self):
+        random.seed(39) # randint(-2, 2) generates -1, then 0
+        self.l1._make_spread(995, 1005)
+        self.assertEqual(self.l1._bid, 995)
+        self.assertEqual(self.l1._ask, 1004)
+        # randint(-2, 2) generates 1, then -2 -> use a locked market
+        # step 1 of _make spread yields 998 - 997
+        # first call to random() decrements the bid by 1: 997 - 997
+        # second call to random() decrements the bid by 1: 996 - 997
+        self.l1._make_spread(1000, 996)
+        self.assertEqual(self.l1._bid, 996)
+        self.assertEqual(self.l1._ask, 997)
+
+    def test_process_cancels(self):
+        # Create asks from 1005 - 1035
+        for p in range(1005, 1036):
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.ASK, p, self.l1._maxq))
+        for p in range(1005, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._localbook.ask_book_prices)
+        # Create bids from 960 - 990
+        for p in range(960, 991):
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+        for p in range(960, 991):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._local_book.bid_book_prices)
+        # case 1a: new ask = 1000, new bid = 995 -> no new cancels
+        self.l1._ask = 1000
+        self.l1._bid = 995
+        self.l1._process_cancels(6)
+        self.assertFalse(self.l1.cancel_collector)
+        # case 2a: new ask = 1008 -> cancel 3 prices: 1005, 1006, 1007
+        self.l1._ask = 1008
+        self.l1._bid = 995
+        self.l1._process_cancels(7)
+        for p in range(1008, 1036):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._local_book.ask_book_prices)
+        for p in range(1005, 1008):
+            with self.subTest(p=p):
+                self.assertFalse(p in self.l1._local_book.ask_book_prices)
+        self.assertEqual(len(self.l1.cancel_collector), 3)
+        # case 2b: new bid = 987 -> cancel 988, 989, 990
+        self.l1._ask = 1000
+        self.l1._bid = 987
+        self.l1._process_cancels(8)
+        for p in range(960, 988):
+            with self.subTest(p=p):
+                self.assertTrue(p in self.l1._local_book.bid_book_prices)
+        for p in range(988, 991):
+            with self.subTest(p=p):
+                self.assertFalse(p in self.l1._local_book.bid_book_prices)
+        self.assertEqual(len(self.l1.cancel_collector), 3)
