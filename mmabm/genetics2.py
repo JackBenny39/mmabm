@@ -64,10 +64,10 @@ class Predictors:
         self._make_predictors(condition_probs, theta, symm)
         self._keep = int(keep_pct * num_chroms)
         if not weights:
-            self.new_genes = self.new_genes_uf
+            self.new_genes = self._new_genes_uf
         else:
             self._weights = self._make_weights()
-            self.new_genes = self.new_genes_wf
+            self.new_genes = self._new_genes_wf
         self.current = []
 
     def _make_predictors(self, condition_probs, theta, symm):
@@ -83,7 +83,7 @@ class Predictors:
         numer = reversed(ranger)
         return np.cumsum([k/denom for k in numer])
     
-    def match_state(self, state):
+    def _match_state(self, state):
         self.current.clear()
         min_acc = max([c.accuracy for c in self.predictors])
         for c in self.predictors:
@@ -95,14 +95,15 @@ class Predictors:
                 elif c.accuracy == min_acc:
                     self.current.append(c)
 
-    def get_forecast(self):
+    def get_forecast(self, state):
+        self._match_state(state)
         return sum([c.strategy for c in self.current]) / len(self.current)
 
     def update_accuracies(self, actual):
         for c in self.current:
             c.update_accuracy(actual)
     
-    def new_genes_uf(self):
+    def _new_genes_uf(self):
         self._find_winners()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:
@@ -125,7 +126,7 @@ class Predictors:
             self._check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
             self._check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
-    def new_genes_wf(self):
+    def _new_genes_wf(self):
         self._find_winners()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:

@@ -137,7 +137,6 @@ class Runner:
 
     def _make_signals(self, step):
         self.oi_signal.make_signal(step)
-        return self.oi_signal.v
 
     def doCancels(self, trader):
         for c in trader.cancel_collector:
@@ -167,7 +166,9 @@ class Runner:
                         top_of_book = self.exchange.report_top_of_book(current_time)
                 elif t.trader_type == TType.MarketMaker:
                     if not current_time % t.arrInt:
-                        t.process_signal1(current_time, (self._make_signals(current_time), top_of_book['best_bid'], top_of_book['best_ask']))
+                        self._make_signals(current_time)
+                        t.process_signal1(current_time, (self._oi_signal.v, self._oi_signal.str, 
+                                                         top_of_book['best_bid'], top_of_book['best_ask']))
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)

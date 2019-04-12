@@ -44,6 +44,17 @@ class MarketMakerL:
     def __str__(self):
         return str(tuple([self.trader_id, self._maxq, self.arrInt]))
 
+    # Make Orders
+    def _make_add_quote(self, time, side, price, quantity):
+        '''Make one add quote (dict)'''
+        self._quote_sequence += 1
+        return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
+                'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
+        
+    def _make_cancel_quote(self, q, time):
+        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': self.trader_id,
+                'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
+
     def seed_book(self, step, ask, bid):
         q = self._make_add_quote(step, Side.BID, bid, self._maxq)
         self.quote_collector.append(q)
@@ -75,17 +86,7 @@ class MarketMakerL:
         self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
                                          'delta_inv': self._delta_inv})
 
-    # Make Orders
-    def _make_add_quote(self, time, side, price, quantity):
-        '''Make one add quote (dict)'''
-        self._quote_sequence += 1
-        return {'order_id': self._quote_sequence, 'trader_id': self.trader_id, 'timestamp': time, 
-                'type': OType.ADD, 'quantity': quantity, 'side': side, 'price': price}
-        
-    def _make_cancel_quote(self, q, time):
-        return {'type': OType.CANCEL, 'timestamp': time, 'order_id': q['order_id'], 'trader_id': self.trader_id,
-                'quantity': q['quantity'], 'side': q['side'], 'price': q['price']}
-
+    
     # Update Orderbook
     def _update_midpoint(self, bid, ask):
         self._mid = (bid + ask) / 2
@@ -98,6 +99,13 @@ class MarketMakerL:
                 self._ask += 1
             else:
                 self._bid -= 1
+
+    # Track signal
+    def _collect_signal(self, step, signal):
+        for chrom in self._oi.current:
+            self.signal_collector.append({'Step': step, 'OIV': signal[0], 'OIStr': signal[1],
+                                          'OICond': chrom.condition, 'OIStrat': chrom.strategy, 
+                                          'OIAcc': chrom.accuracy})
 
     def _process_cancels(self, step):
         self.cancel_collector.clear()
@@ -196,18 +204,23 @@ class MarketMakerL:
         '''
 
         # Update predictor accuracy
-        self._oi.update_accuracies(signal[0]) # actual oi is signal[0]
+        self._oi.update_accuracies(signal[0]) # signal[0] is actual oi
+
+        # Collect signal stats
+        self._collect_signal(step, signal)
 
         # Run genetics if it is time
         if not step % self._genetic_int:
-            self._oi.new_genes_uf()
-            #self._oi.new_genes_wf()
+            self._oi.new_genes()
+
+        # Predict order imbalance
+        self._oi.get_forecast(signal[1]) # signal[1] is oi string
 
         # Compute new midpoint
-        self._update_midpoint(signal[1], signal[2]) # signal[1] is the bid; signal[2] is the ask
+        self._update_midpoint(signal[2], signal[3]) # signal[2] is the bid; signal[3] is the ask
         
         # Compute desired spread
-        self._make_spread(signal[1], signal[2]) # signal[1] is the bid; signal[2] is the ask
+        self._make_spread(signal[2], signal[3]) # signal[2] is the bid; signal[3] is the ask
 
         # Cancel old quotes
         self._process_cancels(step)
