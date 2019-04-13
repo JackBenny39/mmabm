@@ -261,51 +261,51 @@ class TestMarketMakerL(unittest.TestCase):
     '''
     def test_update_bid_book1(self):
         ''' 1. _bid < prevailing worst bid (bid book empty due to canceling first) '''
-        self.assertFalse(self.l1._bid_book_prices)
+        self.assertFalse(self.l1._localbook.bid_book_prices)
         self.l1._bid = 995
         tob_ask = 1000
         self.l1._update_bid_book(6, tob_ask)
         # case 1: Add orders from 956 -> 995
         for p in range(956, 996):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         self.assertEqual(len(self.l1.quote_collector), 40)
 
     def test_update_bid_book2(self):
         ''' 2. _bid < prevailing best ask: add new bid orders from _bid and down '''
         # Create bids from 960 - 990
         for p in range(960, 991):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
         for p in range(960, 991):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         # case 2: _bid = 995, best_ask = 1000 -> add 5 new prices: 991 - 995
         self.l1._bid = 995
         tob_ask = 1000
         self.l1._update_bid_book(6, tob_ask)
         for p in range(960, 996):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         self.assertEqual(len(self.l1.quote_collector), 5)
    
     def test_update_bid_book3(self):
         ''' _bid >= prevailing best ask: add new bid orders from prevailing best ask-1 and down '''
         # Create bids from 960 - 995
         for p in range(960, 996):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
         for p in range(960, 996):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         # case 2: _bid = 1000, but tob_ask = 988 -> add 2 prices: 996, 997
         self.l1._bid = 1000
         tob_ask = 998
         self.l1._update_bid_book(7, tob_ask)
         for p in range(960, 998):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         for p in range(998, 1000):
             with self.subTest(p=p):
-                self.assertFalse(p in self.l1._bid_book_prices)
+                self.assertFalse(p in self.l1._localbook.bid_book_prices)
         self.assertEqual(len(self.l1.quote_collector), 2)
  
     def test_update_bid_book4(self):
@@ -313,43 +313,43 @@ class TestMarketMakerL(unittest.TestCase):
         # case 4: new bid size == 2 -> replenish size to 5 with new add order
         # Create bids from 960 - 995
         for p in range(960, 996):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
         for p in range(960, 996):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         self.l1._bid = 995
         tob_ask = 1000
-        self.l1._modify_order(Side.BID, 3, 36, 995)
-        self.assertEqual(self.l1._bid_book[995]['orders'][36]['quantity'], 2)
-        self.assertEqual(self.l1._bid_book[995]['size'], 2)
-        self.assertEqual(self.l1._bid_book[995]['num_orders'], 1)
+        self.l1._localbook.modify_order(Side.BID, 3, 36, 995)
+        self.assertEqual(self.l1._localbook.bid_book[995]['orders'][36]['quantity'], 2)
+        self.assertEqual(self.l1._localbook.bid_book[995]['size'], 2)
+        self.assertEqual(self.l1._localbook.bid_book[995]['num_orders'], 1)
         self.l1.quote_collector.clear() # happens in process_order
         self.l1._update_bid_book(8, tob_ask)
-        self.assertEqual(self.l1._bid_book[995]['size'], 5)
-        self.assertEqual(self.l1._bid_book[995]['num_orders'], 2)
+        self.assertEqual(self.l1._localbook.bid_book[995]['size'], 5)
+        self.assertEqual(self.l1._localbook.bid_book[995]['num_orders'], 2)
         self.assertEqual(len(self.l1.quote_collector), 1)
   
     def test_update_bid_book5(self):
         ''' Also, price range should always be between best bid - 20 and best bid - 60 '''
         # make best bid == 975 -> add orders to the other end of the book to make 40 prices
         for p in range(960, 976):
-            self.l1._add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
+            self.l1._localbook.add_order(self.l1._make_add_quote(35, Side.BID, p, self.l1._maxq))
         for p in range(960, 976):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         self.l1._bid = 975
         tob_ask = 1040
         self.l1._update_bid_book(9, tob_ask)
         for p in range(936, 975):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         # make best bid == 1030 -> cancel orders on the other end of the book to make 40 prices
         self.l1._bid = 1030
         tob_ask = 1040
         self.l1._update_bid_book(10, tob_ask)
         for p in range(991, 1031):
             with self.subTest(p=p):
-                self.assertTrue(p in self.l1._bid_book_prices)
+                self.assertTrue(p in self.l1._localbook.bid_book_prices)
         for p in range(961, 991):
             with self.subTest(p=p):
-                self.assertFalse(p in self.l1._bid_book_prices)
+                self.assertFalse(p in self.l1._localbook.bid_book_prices)
