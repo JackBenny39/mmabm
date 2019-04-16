@@ -2,6 +2,8 @@ import random
 
 import numpy as np
 
+from operator import attrgetter
+
 
 class Chromosome:
     '''
@@ -9,10 +11,10 @@ class Chromosome:
 
     condition is a bitstring of 0, 1, or 2; it matches the market state
     action is a bitstring of 0 or 1; it is the action associated with the market state
-    _strategy is the numerical value of _action
-    used is the number of events 
+    strategy is the numerical value of _action
+    used is 1 if used, 0 o/w 
     accuracy is the MA of the MSFE
-    _theta is the MA weight
+    theta is the MA weight
 
     Each of the bits can be thought of as a gene - and are subject to potential mutation
     A chromosome is a collection of genes - and is subject to potential crossover with another chromosome
@@ -104,7 +106,7 @@ class Predictors:
             c.update_accuracy(actual)
     
     def _new_genes_uf(self):
-        self._find_winners()
+        self._find_winners_uf()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - uniform selection
@@ -127,7 +129,7 @@ class Predictors:
             self._check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
     def _new_genes_wf(self):
-        self._find_winners()
+        self._find_winners_wf()
         pred_var = np.mean([p.accuracy for p in self.predictors])
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - weighted selection
@@ -149,12 +151,20 @@ class Predictors:
             self._check_chrom(Chromosome(c1_condition, c1_action, p1.theta, p1.symm), p1, pred_var, parent_var)
             self._check_chrom(Chromosome(c2_condition, c2_action, p2.theta, p2.symm), p2, pred_var, parent_var)
 
-    def _find_winners(self):
+    def _find_winners_uf(self):
         used = [c for c in self.predictors if c.used]
-        if len(used) <= self._keep:
-            self.predictors = sorted(self.predictors, key=lambda c: c.used, reverse=True)[: self._keep]
+        if len(used) < self._keep:
+            self.predictors = sorted(self.predictors, key=attrgetter('used'), reverse=True)[: self._keep]
         else:
-            self.predictors = sorted(used, key=lambda c: c.accuracy)[: self._keep]
+            self.predictors = sorted(used, key=attrgetter('accuracy'))[: self._keep]
+
+    def _find_winners_wf(self):
+        used = [c for c in self.predictors if c.used]
+        if len(used) < self._keep:
+            temp = sorted(self.predictors, key=attrgetter('accuracy'))
+            self.predictors = sorted(temp, key=attrgetter('used'), reverse=True)[: self._keep]
+        else:
+            self.predictors = sorted(used, key=attrgetter('accuracy'))[: self._keep]
     
     def _mutate(self, str1, str2, str_len, mutate_prob, str_rng):
         m = np.random.random_sample((2, str_len))
