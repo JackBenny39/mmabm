@@ -14,11 +14,12 @@ from mmabm.signal2 import ImbalanceSignal
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=MPI, prime1=PRIME1, run_steps=RUN_STEPS, write_interval=WRITE_INTERVAL, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=MPI, prime1=PRIME1, run_steps=RUN_STEPS, write_interval=WRITE_INTERVAL):
         self.exchange = orderbook.Orderbook()
         self.oi_signal = ImbalanceSignal(OI_SIGNAL, OI_HIST_LEN)
         self.h5filename = h5filename
         self.mpi = mpi
+        self.prime1 = prime1
         self.run_steps = run_steps + 1
         self.liquidity_providers = {}
         self.traders = []
@@ -33,7 +34,7 @@ class Runner:
         if INFORMED:
             informedTrades = np.int(INFORMED_MU*np.sum(np.array([t.quantity*self.run_steps/t.delta_t for t in self.takers])) \
                 if TAKER else 1/INFORMED_MU)
-            self.informed_trader = self.buildInformedTrader(INFORMED_MAXQ, INFORMED_RUN_LENGTH, informedTrades, prime1)
+            self.informed_trader = self.buildInformedTrader(INFORMED_MAXQ, INFORMED_RUN_LENGTH, informedTrades)
             self.traders.append(self.informed_trader)
         if PENNYJUMPER:
             self.pennyjumper = self.buildPennyJumper()
@@ -45,9 +46,10 @@ class Runner:
         self.q_take, self.lambda_t = self.makeQTake(Q_TAKE, LAMBDA0, WHITENOISE, C_LAMBDA)
         self.seedOrderbook()
         if PROVIDER:
-            self.makeSetup(prime1, LAMBDA0)
+            self.makeSetup(LAMBDA0)
         else:
             self.prime_MML(1, 1002000, 997995)
+        self.runMcs(write_interval)
 
 
     def buildProviders(self, providerMaxQ, pAlpha, pDelta):
@@ -64,10 +66,10 @@ class Runner:
         taker_ids = [2000 + i for i in range(numTakers)]
         return [trader.Taker(t, takerMaxQ, tMu) for t in taker_ids]
 
-    def buildInformedTrader(self, informedMaxQ, informedRunLength, informedTrades, prime1):
+    def buildInformedTrader(self, informedMaxQ, informedRunLength, informedTrades):
         ''' Informed trader id starts with 5
         '''
-        return trader.InformedTrader(5000, informedMaxQ, informedTrades, informedRunLength, prime1, self.run_steps)
+        return trader.InformedTrader(5000, informedMaxQ, informedTrades, informedRunLength, self.prime1, self.run_steps)
 
     def buildPennyJumper(self):
         ''' PJ id starts with 4
@@ -114,9 +116,9 @@ class Runner:
         self.exchange.add_order_to_book(qbid)
         self.exchange.add_order_to_history(qbid)
 
-    def makeSetup(self, prime1, lambda0):
+    def makeSetup(self, lambda0):
         top_of_book = self.exchange.report_top_of_book(0)
-        for current_time in range(1, prime1):
+        for current_time in range(1, self.prime1):
             ps = random.sample(self.providers, self.num_providers)
             for p in ps:
                 if not current_time % p.delta_t:
@@ -125,14 +127,14 @@ class Runner:
         ask = top_of_book['best_ask']
         bid = top_of_book['best_bid']
         #self.signal.midl1 = (ask + bid)/2
-        self.prime_MML(prime1-1, ask, bid)
+        self.prime_MML(self.prime1-1, ask, bid)
         
     def prime_MML(self, step, ask, bid):
         for m in self.marketmakers:
             m.seed_book(step, ask, bid)
             for q in m.quote_collector:
                 self.exchange.process_order(q)
-        top_of_book = self.exchange.report_top_of_book(step)
+        #top_of_book = self.exchange.report_top_of_book(step)
         #self.signal.make_mid_signal(step, top_of_book['best_bid'], top_of_book['best_ask'])
 
     def _make_signals(self, step):
@@ -151,9 +153,9 @@ class Runner:
             # side of the resting order: ASK -> taker buy
             self.oi_signal.update_v(c['quantity'] * (1 if c['side'] == Side.ASK else -1))
 
-    def runMcs(self, prime1, write_interval):
-        top_of_book = self.exchange.report_top_of_book(prime1)
-        for current_time in range(prime1, self.run_steps):
+    def runMcs(self, write_interval):
+        top_of_book = self.exchange.report_top_of_book(self.prime1)
+        for current_time in range(self.prime1, self.run_steps):
             traders = random.sample(self.traders, self.num_traders)
             for t in traders:
                 if t.trader_type == TType.Provider:
@@ -172,13 +174,13 @@ class Runner:
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask']) # <-- Here, 20190410
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
                         for q in t.quote_collector:
                             self.exchange.process_order(q)
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        self.signal.reset_current() # < -- a general self._reset_signals here?
+                        self.oi_signal.reset_current() # < -- a general self._reset_signals here?
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
@@ -213,7 +215,8 @@ if __name__ == '__main__':
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file)
-        print(market1.exchange.report_top_of_book(20))
+        print(market1.exchange.order_history)
+        print(market1.exchange.report_top_of_book(market1.prime1-1))
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
 

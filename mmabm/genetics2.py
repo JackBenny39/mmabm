@@ -107,7 +107,7 @@ class Predictors:
     
     def _new_genes_uf(self):
         self._find_winners_uf()
-        pred_var = np.mean([p.accuracy for p in self.predictors])
+        pred_var = np.mean([p.accuracy for p in self.predictors]) # if p.used?
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - uniform selection
             p1, p2 = tuple(random.sample(self.predictors, 2))
@@ -130,7 +130,7 @@ class Predictors:
 
     def _new_genes_wf(self):
         self._find_winners_wf()
-        pred_var = np.mean([p.accuracy for p in self.predictors])
+        pred_var = np.mean([p.accuracy for p in self.predictors]) # if p.used?
         while len(self.predictors) < self._num_chroms:
             # Choose two parents - weighted selection
             p1, p2 = tuple(random.choices(self.predictors, cum_weights=self._weights, k=2))

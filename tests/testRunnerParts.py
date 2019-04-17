@@ -1,8 +1,6 @@
 import random
 import unittest
 
-from mmabm.trader import InformedTrader
-
 
 class TestTrader(unittest.TestCase):
     
