@@ -146,7 +146,7 @@ class Orderbook(object):
             ex_id = self._lookup[order['trader_id']][order['order_id']]
             if order['type'] == OType.CANCEL:
                 self._remove_order(order['side'], order['price'], ex_id)
-            else: #order['type'] == 'modify'
+            else: #order['type'] == MODIFY
                 self._modify_order(order['side'], order['quantity'], ex_id, order['price'])
 
     def _match_trade(self, order):

@@ -1,5 +1,6 @@
 import random
 
+import pandas as pd
 
 from mmabm.genetics2 import Predictors
 from mmabm.localbook import Localbook
@@ -86,7 +87,10 @@ class MarketMakerL:
         self.cash_flow_collector.append({'mmid': self.trader_id, 'timestamp': step, 'cash_flow': self._cash_flow,
                                          'delta_inv': self._delta_inv})
 
-    
+    def mmProfitabilityToh5(self, filename):
+        temp_df = pd.DataFrame(self.cash_flow_collector)
+        temp_df.to_hdf(filename, 'mmp', append=True, format='table', complevel=5, complib='blosc')
+
     # Update Orderbook
     def _update_midpoint(self, bid, ask):
         self._mid = (bid + ask) / 2
@@ -107,6 +111,12 @@ class MarketMakerL:
                                           'OICond': chrom.condition, 'OIStrat': chrom.strategy, 
                                           'OIAcc': chrom.accuracy})
 
+    def signal_collector_to_h5(self, filename):
+        '''Append signal to an h5 file'''
+        temp_df = pd.DataFrame(self.signal_collector)
+        temp_df.to_hdf(filename, 'signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
+
+    # Local book updates
     def _process_cancels(self, step):
         self.cancel_collector.clear()
         best_ask = self._localbook.ask_book_prices[0]
@@ -233,7 +243,7 @@ class MarketMakerL:
         self.cancel_collector.clear()
         self.quote_collector.clear()
         
-        # Add new orders to make depth and/or establish new inside spread (Start here 20190410)
+        # Add new orders to make depth and/or establish new inside spread
         self._update_ask_book(step, tob_bid)
         self._update_bid_book(step, tob_ask)
         

@@ -2,6 +2,7 @@ import random
 import time
 
 import numpy as np
+import pandas as pd
 
 import mmabm.learner2 as learner
 import mmabm.orderbook as orderbook
@@ -50,6 +51,11 @@ class Runner:
         else:
             self.prime_MML(1, 1002000, 997995)
         self.runMcs(write_interval)
+        self.exchange.trade_book_to_h5(h5filename)
+        for m in self.marketmakers:
+            m.signal_collector_to_h5(h5filename)
+            m.mmProfitabilityToh5(h5filename)
+        self.qTakeToh5()
 
 
     def buildProviders(self, providerMaxQ, pAlpha, pDelta):
@@ -156,7 +162,7 @@ class Runner:
     def runMcs(self, write_interval):
         top_of_book = self.exchange.report_top_of_book(self.prime1)
         for current_time in range(self.prime1, self.run_steps):
-            traders = random.sample(self.traders, self.num_traders)
+            traders = random.sample(self.traders, self.num_traders) # random.shuffle(self.traders)
             for t in traders:
                 if t.trader_type == TType.Provider:
                     if not current_time % t.delta_t:
@@ -169,7 +175,7 @@ class Runner:
                 elif t.trader_type == TType.MarketMaker:
                     if not current_time % t.arrInt:
                         self._make_signals(current_time)
-                        t.process_signal1(current_time, (self._oi_signal.v, self._oi_signal.str, 
+                        t.process_signal1(current_time, (self.oi_signal.v, self.oi_signal.str, 
                                                          top_of_book['best_bid'], top_of_book['best_ask']))
                         if t.cancel_collector: # need to check?
                             self.doCancels(t)
@@ -184,20 +190,22 @@ class Runner:
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
-                        if self.exchange.traded:
+                        if self.exchange.traded: # not necessary in current setup - taker always trades if time matches!
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
                 else:
                     if current_time in t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time))
-                        if self.exchange.traded:
+                        if self.exchange.traded: # not necessary in current setup - taker always trades if time in list!
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
 
-
+    def qTakeToh5(self):
+        temp_df = pd.DataFrame({'qt_take': self.q_take, 'lambda_t': self.lambda_t})
+        temp_df.to_hdf(self.h5filename, 'qtl', append=True, format='table', complevel=5, complib='blosc')
 
 
 if __name__ == '__main__':
@@ -210,14 +218,10 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_mmabm_%d_test' % j
+        h5_root = 'abmga_%d' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
         market1 = Runner(h5filename=h5_file)
-        print(market1.exchange.order_history)
-        print(market1.exchange.report_top_of_book(market1.prime1-1))
 
         print('Run %d: %.1f seconds' % (j, time.time() - start))
-
-
