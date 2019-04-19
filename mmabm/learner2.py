@@ -34,10 +34,16 @@ class MarketMakerL:
         self._oi = Predictors(OI_NUM_CHROMS, OI_COND_LEN, OI_ACTION_LEN, OI_COND_PROBS, 
                               OI_ACTION_MUTATE_P, OI_COND_CROSS_P, OI_COND_MUTATE_P, 
                               OI_THETA, OI_KEEP_PCT, OI_SYMM, OI_WEIGHTS)
+        self.oi_signal_collector = []
+
+        self._of = Predictors(OF_NUM_CHROMS, OF_COND_LEN, OF_ACTION_LEN, OF_COND_PROBS, 
+                              OF_ACTION_MUTATE_P, OF_COND_CROSS_P, OF_COND_MUTATE_P, 
+                              OF_THETA, OF_KEEP_PCT, OF_SYMM, OF_WEIGHTS)
+        self.of_signal_collector = []
 
         self._genetic_int = g_int
-        self.signal_collector = []
-
+        
+        
     def __repr__(self):
         class_name = type(self).__name__
         return '{0}({1}, {2}, {3})'.format(class_name, self.trader_id, self._maxq, self.arrInt)
@@ -107,14 +113,20 @@ class MarketMakerL:
     # Track signal
     def _collect_signal(self, step, signal):
         for chrom in self._oi.current:
-            self.signal_collector.append({'Step': step, 'OIV': signal[0], 'OIStr': signal[1],
-                                          'OICond': chrom.condition, 'OIStrat': chrom.strategy, 
-                                          'OIAcc': chrom.accuracy})
+            self.oi_signal_collector.append({'Step': step, 'OIV': signal[2], 'OIStr': signal[3],
+                                             'OICond': chrom.condition, 'OIStrat': chrom.strategy, 
+                                             'OIAcc': chrom.accuracy})
+        for chrom in self._of.current:
+            self.of_signal_collector.append({'Step': step, 'OFV': signal[4], 'OFStr': signal[5],
+                                             'OFCond': chrom.condition, 'OFStrat': chrom.strategy, 
+                                             'OFAcc': chrom.accuracy})
 
     def signal_collector_to_h5(self, filename):
         '''Append signal to an h5 file'''
-        temp_df = pd.DataFrame(self.signal_collector)
-        temp_df.to_hdf(filename, 'signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
+        oi_df = pd.DataFrame(self.oi_signal_collector)
+        oi_df.to_hdf(filename, 'oi_signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
+        of_df = pd.DataFrame(self.of_signal_collector)
+        of_df.to_hdf(filename, 'of_signal_%d' % self.trader_id, append=True, format='table', complevel=5, complib='blosc')
 
     # Local book updates
     def _process_cancels(self, step):
@@ -214,7 +226,8 @@ class MarketMakerL:
         '''
 
         # Update predictor accuracy
-        self._oi.update_accuracies(signal[0]) # signal[0] is actual oi
+        self._oi.update_accuracies(signal[2]) # signal[2] is actual oi
+        self._of.update_accuracies(signal[4]) # signal[4] is actual of
 
         # Collect signal stats
         self._collect_signal(step, signal)
@@ -222,15 +235,17 @@ class MarketMakerL:
         # Run genetics if it is time
         if not step % self._genetic_int:
             self._oi.new_genes()
+            self._of.new_genes()
 
-        # Predict order imbalance
-        self._oi.get_forecast(signal[1]) # signal[1] is oi string
+        # Predict order imbalance, order flow
+        self._oi.get_forecast(signal[3]) # signal[3] is oi string
+        self._of.get_forecast(signal[5]) # signal[5] is of string
 
         # Compute new midpoint
-        self._update_midpoint(signal[2], signal[3]) # signal[2] is the bid; signal[3] is the ask
+        self._update_midpoint(signal[0], signal[1]) # signal[0] is the bid; signal[1] is the ask
         
         # Compute desired spread
-        self._make_spread(signal[2], signal[3]) # signal[2] is the bid; signal[3] is the ask
+        self._make_spread(signal[0], signal[1]) # signal[0] is the bid; signal[1] is the ask
 
         # Cancel old quotes
         self._process_cancels(step)

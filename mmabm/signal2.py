@@ -4,7 +4,7 @@ from math import log
 from statistics import pstdev
 
 
-class ImbalanceSignal:
+class OrderSignal:
     '''
     Orders-based Signals
     '''
@@ -24,6 +24,21 @@ class ImbalanceSignal:
         
     def _make_history(self, step):
         self._history[step % self._hist_len] = self.v
+    
+    def reset_current(self):
+        self.v = 0
+
+
+class ImbalanceSignal(OrderSignal):
+    '''
+    Orders-based Signals
+    '''
+
+    def __init__(self, inputs, hist_len):
+        '''
+        Constructor
+        '''
+        super().__init__(inputs, hist_len)
 
     def make_signal(self, step):
         self._make_history(step)
@@ -33,11 +48,25 @@ class ImbalanceSignal:
         oi_list.extend(['1' if self.v <= v else '0' for v in self._values[12:18]])
         oi_list.extend(['1' if self.v >= v else '0' for v in self._values[18:]])
         self.str = ''.join(oi_list)
-    
-    def reset_current(self):
-        self.v = 0
 
 
+class OrderFlowSignal(OrderSignal):
+    '''
+    Orders-based Signals
+    '''
+
+    def __init__(self, inputs, hist_len):
+        '''
+        Constructor
+        '''
+        super().__init__(inputs, hist_len)
+
+    def make_signal(self, step):
+        self._make_history(step)
+        sum_hist = sum(self._history)
+        of_list = ['1' if sum_hist > v else '0' for v in self._values[:8]]
+        of_list.extend(['1' if self.v > v else '0' for v in self._values[8:]])
+        self.str = ''.join(of_list)
 
 
 class RetSignal:

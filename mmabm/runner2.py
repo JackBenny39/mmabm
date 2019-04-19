@@ -10,7 +10,7 @@ import mmabm.trader as trader
 
 from mmabm.settings import *
 from mmabm.shared import Side, OType, TType
-from mmabm.signal2 import ImbalanceSignal
+from mmabm.signal2 import ImbalanceSignal, OrderFlowSignal
 
 
 class Runner:
@@ -18,6 +18,7 @@ class Runner:
     def __init__(self, h5filename='test.h5', mpi=MPI, prime1=PRIME1, run_steps=RUN_STEPS, write_interval=WRITE_INTERVAL):
         self.exchange = orderbook.Orderbook()
         self.oi_signal = ImbalanceSignal(OI_SIGNAL, OI_HIST_LEN)
+        self.of_signal = OrderFlowSignal(OF_SIGNAL, OF_HIST_LEN)
         self.h5filename = h5filename
         self.mpi = mpi
         self.prime1 = prime1
@@ -148,6 +149,11 @@ class Runner:
 
     def _make_signals(self, step):
         self.oi_signal.make_signal(step)
+        self.of_signal.make_signal(step)
+
+    def _reset_signals(self):
+        self.oi_signal.reset_current()
+        self.of_signal.reset_current()
 
     def doCancels(self, trader):
         for c in trader.cancel_collector:
@@ -158,9 +164,9 @@ class Runner:
             contra_side = self.liquidity_providers[c['trader']]
             contra_side.confirm_trade_local(c)
             #print('Trade', c['timestamp'], ': ', c['price'])
-            #self.signal.arrv += c['quantity']
             # side of the resting order: ASK -> taker buy
             self.oi_signal.update_v(c['quantity'] * (1 if c['side'] == Side.ASK else -1))
+            self.of_signal.update_v(c['quantity'])
 
     def runMcs(self, write_interval):
         top_of_book = self.exchange.report_top_of_book(self.prime1)
@@ -178,8 +184,9 @@ class Runner:
                 elif t.trader_type == TType.MarketMaker:
                     if not current_time % t.arrInt:
                         self._make_signals(current_time)
-                        t.process_signal1(current_time, (self.oi_signal.v, self.oi_signal.str, 
-                                                         top_of_book['best_bid'], top_of_book['best_ask']))
+                        t.process_signal1(current_time, (top_of_book['best_bid'], top_of_book['best_ask'],
+                                                         self.oi_signal.v, self.oi_signal.str,
+                                                         self.of_signal.v, self.of_signal.str))
                         #if t.cancel_collector: # need to check?
                         self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
@@ -189,7 +196,7 @@ class Runner:
                         #if t.cancel_collector: # need to check?
                         self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        self.oi_signal.reset_current() # < -- a general self._reset_signals here?
+                        self._reset_signals()
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
@@ -233,7 +240,7 @@ class Runner:
                         #if t.cancel_collector: # need to check?
                         self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
-                        self.oi_signal.reset_current() # < -- a general self._reset_signals here?
+                        self._reset_signals()
                 elif t.trader_type == TType.Taker:
                     if not current_time % t.delta_t:
                         self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
@@ -274,7 +281,7 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'abmga_%dpj1a' % j
+        h5_root = 'abmga_%d_2' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     

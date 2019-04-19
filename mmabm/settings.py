@@ -27,7 +27,7 @@ INFORMED_RUN_LENGTH = 1
 INFORMED_MU = 0.005
 
 # Penny Jumper
-PENNYJUMPER = True
+PENNYJUMPER = False
 PJ_ALPHA = 0.01
 
 # Market Maker
@@ -45,7 +45,6 @@ LAMBDA0 = 100
 
 # Order Imbalance
 OI_SIGNAL = [-16, -8, -6, -4, -2, 0, 0, 2, 4, 6, 8, 16, -8, -4, -3, -2, -1, 0, 0, 1, 2, 3, 4, 8]
-OI_CUTS = [0, 6, 12, 18, 24]
 OI_HIST_LEN = 5
 OI_NUM_CHROMS = 100
 OI_COND_LEN = len(OI_SIGNAL)
@@ -58,3 +57,18 @@ OI_THETA = 0.02
 OI_KEEP_PCT = 0.8
 OI_SYMM = True
 OI_WEIGHTS = False
+
+# Order Flow
+OF_SIGNAL = [0, 1, 2, 4, 8, 16, 32, 64, 0, 1, 2, 3, 4, 6, 8, 12]
+OF_HIST_LEN = 5
+OF_NUM_CHROMS = 100
+OF_COND_LEN = len(OF_SIGNAL)
+OF_ACTION_LEN = 5 # 5 bits -> 2^5 - 1 = 31 for a range of 0 -> +31 (symm==False)
+OF_COND_PROBS = [0.05, 0.05, 0.9]
+OF_ACTION_MUTATE_P = 0.06
+OF_COND_CROSS_P = 0.1
+OF_COND_MUTATE_P = 0.06
+OF_THETA = 0.02
+OF_KEEP_PCT = 0.8
+OF_SYMM = False
+OF_WEIGHTS = False
