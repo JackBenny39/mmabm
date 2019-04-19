@@ -50,7 +50,10 @@ class Runner:
             self.makeSetup(LAMBDA0)
         else:
             self.prime_MML(1, 1002000, 997995)
-        self.runMcs(write_interval)
+        if PENNYJUMPER:
+            self.runMcsPJ(write_interval)
+        else:
+            self.runMcs(write_interval)
         self.exchange.trade_book_to_h5(h5filename)
         for m in self.marketmakers:
             m.signal_collector_to_h5(h5filename)
@@ -177,14 +180,14 @@ class Runner:
                         self._make_signals(current_time)
                         t.process_signal1(current_time, (self.oi_signal.v, self.oi_signal.str, 
                                                          top_of_book['best_bid'], top_of_book['best_ask']))
-                        if t.cancel_collector: # need to check?
-                            self.doCancels(t)
+                        #if t.cancel_collector: # need to check?
+                        self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
                         t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
                         for q in t.quote_collector:
                             self.exchange.process_order(q)
-                        if t.cancel_collector: # need to check?
-                            self.doCancels(t)
+                        #if t.cancel_collector: # need to check?
+                        self.doCancels(t)
                         top_of_book = self.exchange.report_top_of_book(current_time)
                         self.oi_signal.reset_current() # < -- a general self._reset_signals here?
                 elif t.trader_type == TType.Taker:
@@ -199,6 +202,59 @@ class Runner:
                         if self.exchange.traded: # not necessary in current setup - taker always trades if time in list!
                             self.confirmTrades()
                             top_of_book = self.exchange.report_top_of_book(current_time)
+            if not current_time % write_interval:
+                self.exchange.order_history_to_h5(self.h5filename)
+                self.exchange.sip_to_h5(self.h5filename)
+
+    def runMcsPJ(self, write_interval):
+        top_of_book = self.exchange.report_top_of_book(self.prime1)
+        for current_time in range(self.prime1, self.run_steps):
+            traders = random.sample(self.traders, self.num_traders) # random.shuffle(self.traders)
+            for t in traders:
+                if t.trader_type == TType.Provider:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, top_of_book, self.q_provide, self.lambda_t[current_time]))
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                    t.bulk_cancel(current_time)
+                    if t.cancel_collector:
+                        self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                elif t.trader_type == TType.MarketMaker:
+                    if not current_time % t.arrInt:
+                        self._make_signals(current_time)
+                        t.process_signal1(current_time, (self.oi_signal.v, self.oi_signal.str, 
+                                                         top_of_book['best_bid'], top_of_book['best_ask']))
+                        #if t.cancel_collector: # need to check?
+                        self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        t.process_signal2(current_time, top_of_book['best_bid'], top_of_book['best_ask'])
+                        for q in t.quote_collector:
+                            self.exchange.process_order(q)
+                        #if t.cancel_collector: # need to check?
+                        self.doCancels(t)
+                        top_of_book = self.exchange.report_top_of_book(current_time)
+                        self.oi_signal.reset_current() # < -- a general self._reset_signals here?
+                elif t.trader_type == TType.Taker:
+                    if not current_time % t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time, self.q_take[current_time]))
+                        if self.exchange.traded: # not necessary in current setup - taker always trades if time matches!
+                            self.confirmTrades()
+                            top_of_book = self.exchange.report_top_of_book(current_time)
+                else:
+                    if current_time in t.delta_t:
+                        self.exchange.process_order(t.process_signal(current_time))
+                        if self.exchange.traded: # not necessary in current setup - taker always trades if time in list!
+                            self.confirmTrades()
+                            top_of_book = self.exchange.report_top_of_book(current_time)
+                if random.random() < self.alpha_pj:
+                    self.pennyjumper.process_signal(current_time, top_of_book, self.q_take[current_time])
+                    #if self.pennyjumper.cancel_collector: # need to check?
+                    for c in self.pennyjumper.cancel_collector:
+                        self.exchange.process_order(c)
+                    #if self.pennyjumper.quote_collector: # need to check?
+                    for q in self.pennyjumper.quote_collector:
+                        self.exchange.process_order(q)
+                    top_of_book = self.exchange.report_top_of_book(current_time)
             if not current_time % write_interval:
                 self.exchange.order_history_to_h5(self.h5filename)
                 self.exchange.sip_to_h5(self.h5filename)
@@ -218,7 +274,7 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'abmga_%d' % j
+        h5_root = 'abmga_%dpj1a' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
