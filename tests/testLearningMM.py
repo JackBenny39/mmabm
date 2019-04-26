@@ -167,22 +167,21 @@ class TestTrader(unittest.TestCase):
         #oi_state is 24 bits
         signal = '011111000000011111000000'
         self.l1._match_oi_strat2(signal)
-        self.assertEqual(self.l1._current_oi_strat[0], '221212222222222222020222')
-        self.assertTrue(all([(self.l1._current_oi_strat[0][x] == signal[x] or self.l1._current_oi_strat[0][x] == '2') for x in range(self.l1._oi_len)]))
-        self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
+        self.assertEqual(self.l1._current_oi_strat, '221212222222222222020222')
+        self.assertTrue(all([(self.l1._current_oi_strat[x] == signal[x] or self.l1._current_oi_strat[x] == '2') for x in range(self.l1._oi_len)]))
+        self.assertEqual(sum([self.l1._current_oi_strat[x] == signal[x] for x in range(self.l1._oi_len)]), 4)
         # Another winner with strength == 4 could be '212212222222222222020222'
         self.l1._oi_strat['212212222222222222020222'] = {'action': 'xxxxx', 'strategy': 999, 'accuracy': [0, 0, 1000]}
         # Set '221212222222222222020222' accuracy to less than new strat accuracy
         self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 999
         self.l1._match_oi_strat2(signal)
-        self.assertEqual(self.l1._current_oi_strat[0], '212212222222222222020222')
-        self.assertTrue(all([(self.l1._current_oi_strat[0][x] == signal[x] or self.l1._current_oi_strat[0][x] == '2') for x in range(self.l1._oi_len)]))
-        self.assertEqual(sum([self.l1._current_oi_strat[0][x] == signal[x] for x in range(self.l1._oi_len)]), 4)
-        # If they had the same strength and accuracy, both would be returned
+        self.assertEqual(self.l1._current_oi_strat, '212212222222222222020222')
+        self.assertTrue(all([(self.l1._current_oi_strat[x] == signal[x] or self.l1._current_oi_strat[x] == '2') for x in range(self.l1._oi_len)]))
+        self.assertEqual(sum([self.l1._current_oi_strat[x] == signal[x] for x in range(self.l1._oi_len)]), 4)
+        # If they had the same strength and accuracy, only one would be returned
         self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 1000
         self.l1._match_oi_strat2(signal)
-        for j in ['212212222222222222020222', '221212222222222222020222']:
-            self.assertTrue(j in self.l1._current_oi_strat)
+        self.assertEqual('221212222222222222020222', self.l1._current_oi_strat)
 
     def test_match_arr_strat2(self):
         ''' With seeds == 39, '1222102221222222' is the winning strategy with a max strength == 4  '''
@@ -202,8 +201,7 @@ class TestTrader(unittest.TestCase):
         # If they had the same strength and accuracy, only one would be returned
         self.l1._arr_strat['1222102221222222']['accuracy'][-1] = 1000
         self.l1._match_arr_strat2(signal)
-        self.assertFalse('2122102221222222' in self.l1._current_arr_strat)
-        self.assertTrue('1222102221222222' in self.l1._current_arr_strat)
+        self.assertEqual('1222102221222222', self.l1._current_arr_strat)
 
     def test_match_spread_strat(self):
         ''' With seeds == 39, ['21220', '22020', '02022', '21212', '22210', '02212'] are the winning strategies with a max strength == 2  '''
@@ -229,7 +227,7 @@ class TestTrader(unittest.TestCase):
         self.l1._oi_strat['221212222222222222020222']['accuracy'][1] = 10
         self.l1._oi_strat['221212222222222222020222']['accuracy'][-1] = 1000
         self.l1._oi_strat['221212222222222222020222']['strategy'] = 4
-        self.l1._current_oi_strat = ['221212222222222222020222']
+        self.l1._current_oi_strat = '221212222222222222020222'
         actual = 6
         self.l1._update_oi_acc(actual)
         self.assertListEqual(self.l1._oi_strat['221212222222222222020222']['accuracy'], [12, 11, 1000 - 12/11])
@@ -437,28 +435,28 @@ class TestTrader(unittest.TestCase):
         confirm1 = {'timestamp': 20, 'trader': 3001, 'order_id': 1, 'quantity': 1, 'side': Side.BID, 'price': 995}
         self.l1.confirm_trade_local(confirm1)
         self.assertListEqual(self.l1._last_buy_prices, [995])
-        self.assertEqual(self.l1._cash_flow, -995)
+        self.assertEqual(self.l1._cash_flow, -995/100000)
         self.assertEqual(self.l1._delta_inv, 1)
         self.assertEqual(self.l1._bid_book[995]['num_orders'], 1)
         self.assertEqual(self.l1._bid_book[995]['size'], 4)
         confirm2 = {'timestamp': 22, 'trader': 3001, 'order_id': 1, 'quantity': 4, 'side': Side.BID, 'price': 995}
         self.l1.confirm_trade_local(confirm2)
         self.assertListEqual(self.l1._last_buy_prices, [995, 995])
-        self.assertEqual(self.l1._cash_flow, -4975)
+        self.assertEqual(self.l1._cash_flow, -4975/100000)
         self.assertEqual(self.l1._delta_inv, 5)
         self.assertFalse(self.l1._bid_book_prices)
         # Market maker sells
         confirm3 = {'timestamp': 20, 'trader': 3001, 'order_id': 2, 'quantity': 1, 'side': Side.ASK, 'price': 1005}
         self.l1.confirm_trade_local(confirm3)
         self.assertListEqual(self.l1._last_sell_prices, [1005])
-        self.assertEqual(self.l1._cash_flow, -3970)
+        self.assertEqual(self.l1._cash_flow, -3970/100000)
         self.assertEqual(self.l1._delta_inv, 4)
         self.assertEqual(self.l1._ask_book[1005]['num_orders'], 1)
         self.assertEqual(self.l1._ask_book[1005]['size'], 4)
         confirm4 = {'timestamp': 22, 'trader': 3001, 'order_id': 2, 'quantity': 4, 'side': Side.ASK, 'price': 1005}
         self.l1.confirm_trade_local(confirm4)
         self.assertListEqual(self.l1._last_sell_prices, [1005, 1005])
-        self.assertEqual(self.l1._cash_flow, 50)
+        self.assertAlmostEqual(self.l1._cash_flow, 50/100000, 4)
         self.assertEqual(self.l1._delta_inv, 0)
         self.assertFalse(self.l1._ask_book_prices)
 
@@ -471,7 +469,7 @@ class TestTrader(unittest.TestCase):
         oib_signal = '011111000000011111000000'
         mid_signal = 1000
         self.l1._update_midpoint(oib_signal, mid_signal)
-        # new mid = old mid - 3 + (-1*3)
+        # new mid = mid_signal - 3 + (-1*3)
         self.assertEqual(self.l1._mid, 994)
 
     def test_make_spread(self):
@@ -753,7 +751,7 @@ class TestTrader(unittest.TestCase):
         signal = {'oibv': 6, 'arrv': 8, 'mid': 1000, 'oib': '011111000000011111000000',
                   'arr': '1222102221222222', 'vol': 4}
         
-        self.l1._current_oi_strat = ['222222222222222222222222']
+        self.l1._current_oi_strat = '222222222222222222222222'
         self.l1._current_arr_strat = '2222222222222222'
         self.l1._current_spradj_strat = ['21220']
         self.l1._last_buy_prices = [998, 999]
@@ -795,27 +793,75 @@ class TestTrader(unittest.TestCase):
         self.assertFalse(self.l1._delta_inv)
         self.assertFalse(self.l1._last_buy_prices)
         self.assertFalse(self.l1._last_sell_prices)
- 
-    def test_find_winners(self):
+    @unittest.skip('for now')
+    def test_find_winners_oi(self):
         for j, k in enumerate(self.l1._oi_strat.keys()):
             self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
-        for j, k in enumerate(self.l1._arr_strat.keys()):
-            self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
-        for j, k in enumerate(self.l1._spradj_strat.keys()):
-            self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.l1._find_winners()
-        oi_accs = [kv[1]['accuracy'][2] for kv in self.l1._oi_strat.items()]
+        oi_accs = [v['accuracy'][2] for v in self.l1._oi_strat.values()]
         for j in range(921, 1001):
             with self.subTest(j=j):
                 self.assertTrue(j in oi_accs)
         self.assertEqual(min(oi_accs), 921)
         self.assertEqual(max(oi_accs), 1000)
-        arr_accs = [kv[1]['accuracy'][2] for kv in self.l1._arr_strat.items()]
+        self.l2 = self._makeMML(3002, 1)
+        for j, k in enumerate(self.l2._oi_strat.keys()):
+            self.l2._oi_strat[k]['accuracy'][2] = 1000 - j
+            if j % 5 == 0:
+                self.l2._oi_strat[k]['accuracy'][1] = j
+        self.l2._find_winners()
+        oi_accs = [v['accuracy'] for v in self.l2._oi_strat.values()]
+        for j in range(0, 100, 5):
+            with self.subTest(j=j):
+                self.assertTrue(j in [a[1] for a in oi_accs])
+
+    def test_get_winners_oi(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
+        self.l1._get_winners()
+        oi_accs = [v['accuracy'][2] for v in self.l1._oi_strat.values()]
+        for j in range(921, 1001):
+            with self.subTest(j=j):
+                self.assertTrue(j in oi_accs)
+        self.assertEqual(min(oi_accs), 921)
+        self.assertEqual(max(oi_accs), 1000)
+        self.l2 = self._makeMML(3002, 1)
+        for j, k in enumerate(self.l2._oi_strat.keys()):
+            self.l2._oi_strat[k]['accuracy'][2] = 1000 - j
+            if j % 5 == 0:
+                self.l2._oi_strat[k]['accuracy'][1] = j
+        self.l2._get_winners()
+        oi_accs = [v['accuracy'] for v in self.l2._oi_strat.values()]
+        for j in range(0, 100, 5):
+            with self.subTest(j=j):
+                self.assertTrue(j in [a[1] for a in oi_accs])
+    @unittest.skip('for now')            
+    def test_find_winners_arr(self):
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
+        self.l1._find_winners()
+        arr_accs = [v['accuracy'][2] for v in self.l1._arr_strat.values()]
         for j in range(921, 1001):
             with self.subTest(j=j):
                 self.assertTrue(j in arr_accs)
         self.assertEqual(min(arr_accs), 921)
         self.assertEqual(max(arr_accs), 1000)
+        
+        self.l2 = self._makeMML(3002, 1)
+        for j, k in enumerate(self.l2._arr_strat.keys()):
+            self.l2._arr_strat[k]['accuracy'][2] = 1000 - j
+            if j % 5 == 0:
+                self.l2._arr_strat[k]['accuracy'][1] = j
+        self.l2._find_winners()
+        arr_accs = [v['accuracy'] for v in self.l2._arr_strat.values()]
+        for j in range(0, 100, 5):
+            with self.subTest(j=j):
+                self.assertTrue(j in [a[1] for a in arr_accs])
+    @unittest.skip('for now')
+    def test_find_winners_spr(self):
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.l1._find_winners()
         spr_rr = [kv[1]['rr_spread'][2] for kv in self.l1._spradj_strat.items()]
         for j in range(6, 25):
             with self.subTest(j=j):
@@ -857,7 +903,7 @@ class TestTrader(unittest.TestCase):
             self.l1._oi_strat[k]['accuracy'][1] = 1
             self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_keep)
         self.l1._oi_genes_us()
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
@@ -871,7 +917,7 @@ class TestTrader(unittest.TestCase):
             self.l1._arr_strat[k]['accuracy'][1] = 1
             self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_keep)
         self.l1._arr_genes_us()
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
@@ -885,15 +931,36 @@ class TestTrader(unittest.TestCase):
             self.l1._spradj_strat[k]['rr_spread'][1] = 1
             self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spradj_keep)
         self.l1._spr_genes_us()
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.l1._spr_genes_us()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
         #for k in self.l1._spradj_strat.keys():
             #if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
                 #print(self.l1._spradj_strat[k])
+
+    def test_new_genes_u(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][0] = j
+            self.l1._oi_strat[k]['accuracy'][1] = 1
+            self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][0] = j
+            self.l1._arr_strat[k]['accuracy'][1] = 1
+            self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][0] = j
+            self.l1._spradj_strat[k]['rr_spread'][1] = 1
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        self.l1._genetics_us()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
          
     def test_oi_genes_ws(self):
         for j, k in enumerate(self.l1._oi_strat.keys()):
@@ -901,7 +968,7 @@ class TestTrader(unittest.TestCase):
             self.l1._oi_strat[k]['accuracy'][1] = 1
             self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_keep)
         self.l1._oi_genes_ws()
         self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
@@ -915,7 +982,7 @@ class TestTrader(unittest.TestCase):
             self.l1._arr_strat[k]['accuracy'][1] = 1
             self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_keep)
         self.l1._arr_genes_ws()
         self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
@@ -929,10 +996,31 @@ class TestTrader(unittest.TestCase):
             self.l1._spradj_strat[k]['rr_spread'][1] = 1
             self.l1._spradj_strat[k]['rr_spread'][2] = j
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
-        self.l1._find_winners()
+        self.l1._get_winners()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spradj_keep)
         self.l1._spr_genes_ws()
         self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
         #for k in self.l1._spradj_strat.keys():
             #if self.l1._spradj_strat[k]['rr_spread'][1] != 1:
                 #print(self.l1._spradj_strat[k])
+
+    def test_new_genes_w(self):
+        for j, k in enumerate(self.l1._oi_strat.keys()):
+            self.l1._oi_strat[k]['accuracy'][0] = j
+            self.l1._oi_strat[k]['accuracy'][1] = 1
+            self.l1._oi_strat[k]['accuracy'][2] = 1000 - j
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        for j, k in enumerate(self.l1._arr_strat.keys()):
+            self.l1._arr_strat[k]['accuracy'][0] = j
+            self.l1._arr_strat[k]['accuracy'][1] = 1
+            self.l1._arr_strat[k]['accuracy'][2] = 1000 - j
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        for j, k in enumerate(self.l1._spradj_strat.keys()):
+            self.l1._spradj_strat[k]['rr_spread'][0] = j
+            self.l1._spradj_strat[k]['rr_spread'][1] = 1
+            self.l1._spradj_strat[k]['rr_spread'][2] = j
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)
+        self.l1._genetics_ws()
+        self.assertEqual(len(self.l1._oi_strat), self.l1._oi_ngene)
+        self.assertEqual(len(self.l1._arr_strat), self.l1._arr_ngene)
+        self.assertEqual(len(self.l1._spradj_strat), self.l1._spr_ngene)

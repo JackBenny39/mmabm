@@ -4,6 +4,7 @@ import time
 import numpy as np
 import pandas as pd
 
+import mmabm.genetics as genetics
 import mmabm.learner as learner
 import mmabm.orderbook as orderbook
 import mmabm.signal as signal
@@ -14,7 +15,7 @@ from mmabm.shared import Side, OType, TType
 
 class Runner:
     
-    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=100000, write_interval=5000, **kwargs):
+    def __init__(self, h5filename='test.h5', mpi=1, prime1=20, run_steps=250000, write_interval=5000, **kwargs):
         self.exchange = orderbook.Orderbook()
         self.signal = signal.Signal()
         self.h5filename = h5filename
@@ -144,22 +145,10 @@ class Runner:
         spr_adj_n = 4
         probs = [0.05, 0.05, 0.9]
         
-        arr_genes = {'2' * arr_cond_n: '0' * arr_fcst_n}
-        oi_genes = {'2' * oi_cond_n: '0' * oi_fcst_n}
-        spread_genes = {'2' * spr_cond_n: '0' * spr_adj_n}
+        arr_genes = genetics.make_chromosome(gene_n1, arr_cond_n, arr_fcst_n, probs)
+        oi_genes = genetics.make_chromosome(gene_n1, oi_cond_n, oi_fcst_n, probs)
+        spread_genes = genetics.make_chromosome(gene_n2, spr_cond_n, spr_adj_n, probs)
         genes = tuple([oi_genes, arr_genes, spread_genes])
-        while len(arr_genes) < gene_n1:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), arr_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), arr_fcst_n))
-            arr_genes.update({gk: gv})
-        while len(oi_genes) < gene_n1:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), oi_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), oi_fcst_n))
-            oi_genes.update({gk: gv})
-        while len(spread_genes) < gene_n2:
-            gk = ''.join(str(x) for x in np.random.choice(np.arange(0, 3), spr_cond_n, p=probs))
-            gv = ''.join(str(x) for x in np.random.choice(np.arange(0, 2), spr_adj_n))
-            spread_genes.update({gk: gv})
         # Eventually move these parameters to kwargs
         maxq = 5
         a = b = 1
@@ -362,7 +351,7 @@ if __name__ == '__main__':
     
         start = time.time()
         
-        h5_root = 'python_mmabm_%d' % j
+        h5_root = 'python_mmabm_%d_lb1' % j
         h5dir = 'C:\\Users\\user\\Documents\\Agent-Based Models\\h5 files\\mmabmTests\\'
         h5_file = '%s%s.h5' % (h5dir, h5_root)
     
